@@ -78,19 +78,27 @@ define(function(require, exports, module) {
     
     var classMap = {
         'text': shapedoms.TextDom ,
+        'title': shapedoms.TextDom ,
         'span': shapedoms.SpanDom ,
+        'tspan': shapedoms.TSpanDom ,
         'g': shapedoms.GDom ,
         'canvas': shapedoms.CanvasDom ,
         'defs': shapedoms.DefsDom ,
         'path': shapedoms.PathDom ,
         'rect': shapedoms.RectDom ,
         'clipPath': shapedoms.ClipPathDom ,
+        'circle': shapedoms.CircleDom,
+        'linearGradient': shapedoms.LinearGradient,
+        'radialGradient': shapedoms.RadialGradient,
+        'stop': shapedoms.Stop
     }
 
 	// 创建DOMElement适配对象
-	function createElement(nodeName) {
+	function createElement(nodeName , opts) {
 	    if (classMap[nodeName]) {
-	        return new classMap[nodeName]();
+	        var el = new classMap[nodeName]();
+	        el.init(opts);
+	        return el;
 	    }
 	    throw new Error("不支持的元素类型：" + nodeName);
 	}
@@ -98,10 +106,9 @@ define(function(require, exports, module) {
      * Canvas元素包装类
      */
 	var CanvasElement = extendClass(SVGElement , {
-	    init: function (renderer, nodeName) {
+	    init: function (renderer, nodeName , elOpts) {
     		var wrapper = this;
-    		wrapper.element = createElement(nodeName);
-    		wrapper.element.init(renderer.zr);
+    		wrapper.element = createElement(nodeName , elOpts);
     		wrapper.renderer = renderer;
     	},
     	css: function (styles) {
@@ -165,22 +172,59 @@ define(function(require, exports, module) {
             element.translate(translateX , translateY);
             // apply rotation
             if (inverted) {
-                element.rotation(90);
+                element.rotate(90);
                 element.scale(-1 , 1);
             } else if (rotation) { // text rotation
-                element.rotation(rotation);
-                // transform.push('rotate(' + rotation + ' ' + (element.getAttribute('x') || 0) + ' ' + (element.getAttribute('y') || 0) + ')');
+                element.rotate(rotation , (element.getAttribute('x') || 0) , (element.getAttribute('y') || 0));
             }
             // apply scale
             if (defined(scaleX) || defined(scaleY)) {
                 element.scale(pick(scaleX, 1) , pick(scaleY, 1));
             }
         },
+        translateXSetter: function () {
+            SVGElement.prototype.translateXSetter.apply(this , arguments);
+        },
+        translateYSetter: function () {
+            SVGElement.prototype.translateYSetter.apply(this , arguments);
+        },
         shadow: function (shadowOptions, group, cutOff) {
             // TODO
             return this;
         },
+        
+    	// setters
+    	fillSetter: function (value, prop, element) {
+            if (typeof value === 'string') {
+                element.setAttribute(prop, value);
+            } else if (value) {
+                this.colorGradient(value, prop, element);
+                var key = element.gradient;
+                var gradient = this.renderer.gradients[key];
+                element.setAttribute('gradient-' + prop , gradient.element.toColor(element.style));
+                // console.log(element.nodeName , "setAttribute: gradient-" + prop)
+            }
+        },
+    	titleSetter: function (value) {
+            var titleNode = this.element.getElementsByTagName('title')[0];
+            if (!titleNode) {
+                titleNode = createElement('title');
+                this.element.appendChild(titleNode);
+            }
+            titleNode.setAttribute("text" , (String(pick(value), '')).replace(/<[^>]*>/g, ''))
+        },
+        
 	});
+	
+	var defaultSVGElementSetter = SVGElement.prototype.translateXSetter;
+	
+	CanvasElement.prototype.translateXSetter = CanvasElement.prototype.translateYSetter =
+    CanvasElement.prototype.rotationSetter = CanvasElement.prototype.verticalAlignSetter =
+    CanvasElement.prototype.scaleXSetter = CanvasElement.prototype.scaleYSetter = function (value, key) {
+        this.element[key + 'Setter'](value);
+        defaultSVGElementSetter.apply(this , arguments);
+    };
+	
 	/**
 	 * Canvas渲染器
 	 */
@@ -199,7 +243,7 @@ define(function(require, exports, module) {
     			element
             
     		renderer.zr = zrender.init(container);
-    		boxWrapper = renderer.createElement('canvas')
+    		boxWrapper = renderer.createElement('canvas' , {nativeRenderer: renderer.zr})
     			.attr({
     				version: '1.1'
     			})
@@ -259,6 +303,11 @@ define(function(require, exports, module) {
     			addEvent(win, 'resize', subPixelFix);
     		}
     	},
+    	createElement: function (nodeName , opts) {
+            var wrapper = new this.Element();
+            wrapper.init(this, nodeName , opts);
+            return wrapper;
+        },
     	text: function (str, x, y, useHTML) {
 
             // declare variables
@@ -331,7 +380,6 @@ define(function(require, exports, module) {
     			unescapeAngleBrackets = function (inputStr) {
     				return inputStr.replace(/&lt;/g, '<').replace(/&gt;/g, '>');
     			};
-    
     		/// remove old text
     		while (i--) {
     			textNode.removeChild(childNodes[i]);
@@ -381,7 +429,8 @@ define(function(require, exports, module) {
     				each(spans, function (span) {
     					if (span !== '' || spans.length === 1) {
     						var attributes = {},
-    							tspan = doc.createElementNS(SVG_NS, 'tspan'),
+    				// 			tspan = doc.createElementNS(SVG_NS, 'tspan'),
+    				            tspan = renderer.createElement('tspan').element,
     							spanStyle; // #390
     						if (styleRegex.test(span)) {
     							spanStyle = span.match(styleRegex)[1].replace(/(;| |^)color([ :])/, '$1fill$2');
@@ -398,7 +447,8 @@ define(function(require, exports, module) {
     						if (span !== ' ') {
     
     							// add the text node
-    							tspan.appendChild(doc.createTextNode(span));
+    							//  doc.createTextNode(span)
+    							tspan.appendChild(renderer.createElement('text').attr('text' , span).element);
     
     							if (!spanNo) { // first span in a line, align it to the left
     								if (lineNo && parentX !== null) {
@@ -418,9 +468,9 @@ define(function(require, exports, module) {
     							if (!spanNo && lineNo) {
     
     								// allow getting the right offset height in exporting in IE
-    								if (!hasSVG && forExport) {
-    									css(tspan, { display: 'block' });
-    								}
+    								// if (!hasSVG && forExport) {
+    								// 	css(tspan, { display: 'block' });
+    								// }
     
     								// Set the line height based on the font size of either
     								// the text element or the tspan element
@@ -456,9 +506,9 @@ define(function(require, exports, module) {
     									actualWidth = bBox.width;
     
     									// Old IE cannot measure the actualWidth for SVG elements (#2314)
-    									if (!hasSVG && renderer.forExport) {
-    										actualWidth = renderer.measureSpanWidth(tspan.firstChild.data, wrapper.styles);
-    									}
+    								// 	if (!hasSVG && renderer.forExport) {
+    								// 		actualWidth = renderer.measureSpanWidth(tspan.firstChild.data, wrapper.styles);
+    								// 	}
     
     									tooLong = actualWidth > width;
     
@@ -489,7 +539,7 @@ define(function(require, exports, module) {
     										if (words.length) {
     											softLineNo++;
     											
-    											tspan = doc.createElementNS(SVG_NS, 'tspan');
+    											tspan = renderer.createElement('tspan').element;
     											attr(tspan, {
     												dy: dy,
     												x: parentX
@@ -507,7 +557,8 @@ define(function(require, exports, module) {
     										rest.unshift(words.pop());
     									}
     									if (words.length) {
-    										tspan.appendChild(doc.createTextNode(words.join(' ').replace(/- /g, '-')));
+    								// 		tspan.appendChild(doc.createTextNode(words.join(' ').replace(/- /g, '-')));
+    								        tspan.appendChild(renderer.createElement("text").attr('text' , words.join(' ').replace(/- /g, '-')).element);
     									}
     								}
     								if (wasTooLong) {
@@ -536,10 +587,22 @@ define(function(require, exports, module) {
     	    symb.element.style["brushType"] = "fill";
     	    return symb;
     	} ,
+    	
     	draw: function () {
-    	    this.zr.render();
+    	    var nodes = this.box.childNodes;
+    	    for (var i = 0; i < nodes.length; i++) {
+    	        console.log(nodes[i].nodeName + ' - Canvas')
+    	    }
+    	   // this.zr.render();
     	},
 	});
+	SVGRenderer.prototype.draw = function () {
+	    var nodes = this.box.childNodes;
+	    for (var i = 0; i < nodes.length; i++) {
+	        console.log(nodes[i].nodeName + ' - SVG')
+	    }
+	    console.log('----------------------SVG----------------------')
+	}
 	
 	wrap(Highcharts.Chart.prototype , "setTitle" , function (processed , titleOptions, subtitleOptions, redraw) {
 	    var chart = this,

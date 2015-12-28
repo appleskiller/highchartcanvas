@@ -5,45 +5,66 @@ requirejs([
 ] , function (Highcharts) {
     $(document).ready(function () {
         
-        function chartLoaded() {
-            // Draw the flow chart
-            var ren = this.renderer,
-            colors = Highcharts.getOptions().colors,
-            rightArrow = ['M', 0, 0, 'L', 100, 0, 'L', 95, 5, 'M', 100, 0, 'L', 95, -5],
-            leftArrow = ['M', 100, 0, 'L', 0, 0, 'L', 5, 5, 'M', 0, 0, 'L', 5, -5];
-            
-            // Separator, client from service
-            ren.rect(100 , 100 , 300 , 300)
-                .attr({
-                    'stroke-width': 2,
-                    stroke: 'silver',
-                    dashstyle: 'dash',
-                    fill: '#CCC'
-                })
-                .add();
+        function setOptions(opts) {
+            (new Function('o = ' + opts))();
+            $('#svg').highcharts(o);
+            (new Function('o = ' + opts))();
+            o.chart = o.chart || {};
+            o.chart.renderer = "CanvasRenderer"
+            $('#canvas').highcharts(o);
         }
         
         var options = {
-            chart: {
-                events: {
-                    // load: chartLoaded
-                }
-            } ,
+        chart: {
+            type: 'column'
+        },
+        title: {
+            text: 'Stacked column chart'
+        },
+        xAxis: {
+            categories: ['Apples', 'Oranges', 'Pears', 'Grapes', 'Bananas']
+        },
+        yAxis: {
+            min: 0,
             title: {
-                text: "SVG-Chart"
-            } ,
-            subtitle: {
-                text: 'asdfasdfasdfasdfasdfasdf'
-            } ,
-            series: [{
-                name: 'Tokyo',
-                data: [7.0, 6.9, 9.5, 14.5, 18.2, 21.5, 25.2, 26.5, 23.3, 18.3, 13.9, 9.6]
-            }]
-        }
+                text: 'Total fruit consumption'
+            }
+        },
+        tooltip: {
+            pointFormat: '<span style="color:{series.color}">{series.name}</span>: <b>{point.y}</b> ({point.percentage:.0f}%)<br/>',
+            shared: true
+        },
+        plotOptions: {
+            column: {
+                stacking: 'percent'
+            }
+        },
+        series: [{
+            name: 'John',
+            data: [5, 3, 4, 7, 2]
+        }, {
+            name: 'Jane',
+            data: [2, 2, 3, 2, 1]
+        }, {
+            name: 'Joe',
+            data: [3, 4, 4, 2, 5]
+        }]
+    }
         
-        $('#svg').highcharts(options)
+        setOptions(JSON.stringify(options));
         
-        options.chart.renderer = "CanvasRenderer"
-        $('#canvas').highcharts(options)
+        var editor = ace.edit("editor");
+        editor.setOptions({
+            fontSize: 18,
+            mode: "ace/mode/text" ,
+        })
+        
+        $('#btn').click(function () {
+            try {
+                setOptions(editor.getValue());
+            } catch (e) {
+                console.error(e);
+            }
+        })
     })
 })

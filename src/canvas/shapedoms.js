@@ -115,6 +115,34 @@ define(function(require, exports, module) {
     }
     ZUtil.inherits(HRectangle , Rectangle);
     
+    function mergeParentStyle(parent , style) {
+        if (parent && parent.__inheritTextStyle) {
+            return merge(mergeParentStyle(parent.parent , parent.style) , style);
+        } else {
+            return style;
+        }
+    }
+    /**
+     * 扩展文本，使得文本可以继承父容器样式。
+     */
+    function HText(options) {
+        Text.call(this , options);
+    }
+    HText.prototype = {
+        brush : function (ctx, isHighlight) {
+            if (this.parent && this.parent.__inheritTextStyle) {
+                var cacheStyle = this.style;
+                this.style = mergeParentStyle(this.parent , this.style);
+                Text.prototype.brush.apply(this , arguments);
+                this.style = cacheStyle;
+            } else {
+                Text.prototype.brush.apply(this , arguments);
+            }
+        }
+    }
+    ZUtil.inherits(HText , Text);
+    
+    
     function Dom() {};
     Dom.prototype = {
         namespaceURI: SVG_NS, // 伪装成SVG
@@ -144,6 +172,13 @@ define(function(require, exports, module) {
             this.setDirty();
             // console.log(this.nodeName + " : set " + key + ' = ' + value);
         },
+        getStyle: function (key) {
+            return this.style[key];
+        },
+        setStyle: function (key , value) {
+            this.style[key] = value;
+            this.setDirty();
+        },
         removeAttribute: function (key) {
             delete this.attributes[key];
             this.setDirty();
@@ -155,7 +190,7 @@ define(function(require, exports, module) {
             }
             this.childNodes.push(element);
             element.parentNode = this;
-            this.setDirty();
+            element.setDirty();
         },
         insertBefore: function (newItem, existingItem) {
             if (newItem.parentNode) {
@@ -163,7 +198,7 @@ define(function(require, exports, module) {
             }
             this.childNodes.splice(this.childNodes.indexOf(existingItem), 0, newItem);
             newItem.parentNode = this;
-            this.setDirty();
+            newItem.setDirty();
         },
         removeChild: function (element) {
             var ind = this.childNodes.indexOf(element);
@@ -284,7 +319,9 @@ define(function(require, exports, module) {
         nodeName: 'g' ,
         init: function (opts) {
             Dom.prototype.init.apply(this , arguments);
-            this.shape = new Group();
+            this.shape = new Group({
+                style: this.style
+            });
         } ,
         appendChild: function (element) {
             Dom.prototype.appendChild.apply(this , arguments);
@@ -297,14 +334,14 @@ define(function(require, exports, module) {
         },
         insertBefore: function (newItem, existingItem) {
             Dom.prototype.insertBefore.apply(this , arguments);
-            if (newItem && newItem.shape && existingItem && existingItem.shape) {
+            if (newItem && newItem.shape) {
                 if (newItem.shape.parent){
                     newItem.shape.parent.removeChild(newItem.shape);
                 }
                 this.shape.addChild(newItem.shape);
                 // 调整顺序
                 var childrens = this.shape._children;
-                var from = childrens.indexOf(existingItem.shape);
+                var from = (existingItem && existingItem.shape) ? childrens.indexOf(existingItem.shape) : 0;
                 from = (from === -1) ? 0 : from;
                 var switching = childrens[from];
                 var temp;
@@ -333,12 +370,13 @@ define(function(require, exports, module) {
             Dom.prototype.translate.apply(this , arguments);
         },
         rotate: function (rot , ox , oy) {
-            // rot = (rot - 180) * Math.PI / 180;
+            rot = (rot) * Math.PI / 180;
             this.shape.rotation[0] = rot;
             if (arguments.length > 1) {
-                this.shape.rotation[1] = ox;
-                this.shape.rotation[2] = oy;
+                this.shape.rotation[1] = ox || 0;
+                this.shape.rotation[2] = oy || 0;
             }
+            Dom.prototype.rotate.apply(this , arguments);
         },
         scale: function (x , y) {
             this.shape.scale[0] = x;
@@ -433,14 +471,18 @@ define(function(require, exports, module) {
         "cy": "y"
     })
     
+    function dimensionConverter(value) {
+        value = /px/.test(value) ? parseInt(value) : value;
+        return mathFloor(value)
+    }
     var attr2ZValue = {
         "text-anchor": {
             'middle': 'center'
         },
-        "x": mathFloor ,
-        "y": mathFloor ,
-        "width": mathFloor ,
-        "height": mathFloor ,
+        "x": dimensionConverter ,
+        "y": dimensionConverter ,
+        "width": dimensionConverter ,
+        "height": dimensionConverter ,
     }
     var pathAttr2ZValue = merge(attr2ZValue , {
         "fill": {
@@ -456,8 +498,8 @@ define(function(require, exports, module) {
     })
     
     var circleAttr2ZValue = merge(pathAttr2ZValue , {
-        "cx": mathFloor ,
-        "cy": mathFloor ,
+        "cx": dimensionConverter ,
+        "cy": dimensionConverter ,
     })
     
     function convertZValue(converter , key , value) {
@@ -489,19 +531,28 @@ define(function(require, exports, module) {
         getDefaultStyle: function () {
             return ShapeDom.defaultStyle;
         } ,
+        setStyle: function (key , value) {
+            var zProp = this.attrConverter[key]
+            if (zProp) {
+                this.shape.style[zProp] = convertZValue.call(this , this.valueConverter , key , value);
+            } else {
+                this.shape.style[key] = value;
+            }
+            Dom.prototype.setStyle.apply(this , arguments);
+        },
         setAttribute: function (key, value) {
-            Dom.prototype.setAttribute.apply(this , arguments);
             var zProp = this.attrConverter[key]
             if (zProp) {
                 this.shape.style[zProp] = convertZValue.call(this , this.valueConverter , key , value);
             }
+            Dom.prototype.setAttribute.apply(this , arguments);
         },
         removeAttribute: function (key) {
-            Dom.prototype.setAttribute.apply(this , arguments);
             var zProp = this.attrConverter[key]
             if (zProp) {
                 delete this.shape.style[zProp];
             }
+            Dom.prototype.setAttribute.apply(this , arguments);
         },
         getBBox: function () {
             return this.shape.getRect(this.shape.style);
@@ -562,10 +613,69 @@ define(function(require, exports, module) {
         y: 0 ,
     };
     
+    var TextDomGroupAttrSetter = {
+        "x": function (value) {
+            this.translateXSetter(dimensionConverter(value));
+        } ,
+        "y": function (value) {
+            this.translateYSetter(dimensionConverter(value));
+        } ,
+        "text": function (value) {
+            if (!this.textDom) {
+                this.textDom = new TextDom();
+                this.textDom.init();
+                this.insertBefore(this.textDom);
+            }
+            this.textDom.setAttribute("text" , value);
+        } ,
+        "text-anchor": function (value) {
+            this.shape.style["textAlign"] = convertZValue.call(this , attr2ZValue , "textAlign" , value);
+        } ,
+        'verticalAlign': function (value) {
+            this.shape.style["textBaseline"] = convertZValue.call(this , attr2ZValue , "textBaseline" , value);
+        } 
+    }
+    
+    function TextDomGroup() { GDom.call(this); }
+    TextDomGroup.prototype = {
+        nodeName: 'text' ,
+        ShapClass: Group ,
+        textDom: null ,
+        init: function (opts) {
+            GDom.prototype.init.apply(this , arguments);
+            this.shape.__inheritTextStyle = true;
+        },
+        setAttribute: function (key, value) {
+            if (TextDomGroupAttrSetter[key]){
+                TextDomGroupAttrSetter[key].call(this , value);
+            }
+            GDom.prototype.setAttribute.apply(this , arguments);
+        },
+        setStyle: function (key , value) {
+            GDom.prototype.setStyle.apply(this , arguments);
+        },
+        appendChild: function (element) {
+            GDom.prototype.appendChild.apply(this , arguments);
+        },
+        insertBefore: function (newItem, existingItem) {
+            GDom.prototype.insertBefore.apply(this , arguments);
+        },
+        removeChild: function (element) {
+            GDom.prototype.removeChild.apply(this , arguments);
+        },
+        getBBox: function () {
+            if (this.textDom) {
+                return this.textDom.getBBox();
+            }
+            return this.shape.getRect(this.shape.style);
+        }
+    }
+    ZUtil.inherits(TextDomGroup , GDom);
+    
     function TextDom() { ShapeDom.call(this) }
     TextDom.prototype = {
         nodeName: 'text' ,
-        ShapClass: Text ,
+        ShapClass: HText ,
         getDefaultStyle: function () {
             return TextDom.defaultStyle
         } 
@@ -575,19 +685,17 @@ define(function(require, exports, module) {
         brushType: 'fill'
     })
     
-    function SpanDom() { TextDom.call(this) }
+    function SpanDom() { TextDomGroup.call(this) }
     SpanDom.prototype = {
         nodeName: 'span' ,
-        ShapClass: Text ,
     }
-    ZUtil.inherits(SpanDom , TextDom);
+    ZUtil.inherits(SpanDom , TextDomGroup);
     
-    function TSpanDom() { TextDom.call(this) }
+    function TSpanDom() { TextDomGroup.call(this) }
     TSpanDom.prototype = {
         nodeName: 'tspan' ,
-        ShapClass: Text ,
     }
-    ZUtil.inherits(TSpanDom , TextDom);
+    ZUtil.inherits(TSpanDom , TextDomGroup);
     
     function PathDom() { ShapeDom.call(this) }
     PathDom.prototype = {
@@ -608,7 +716,7 @@ define(function(require, exports, module) {
     function ClipPathDom() { PathDom.call(this) }
     ClipPathDom.prototype = {
         nodeName: 'clipPath' ,
-        ShapClass: Text ,
+        ShapClass: Path ,
     }
     ZUtil.inherits(ClipPathDom , PathDom);
     
@@ -652,6 +760,7 @@ define(function(require, exports, module) {
         GDom: GDom ,
         CanvasDom: CanvasDom ,
         TextDom: TextDom ,
+        TextDomGroup: TextDomGroup ,
         SpanDom: SpanDom ,
         DefsDom: DefsDom ,
         PathDom: PathDom ,

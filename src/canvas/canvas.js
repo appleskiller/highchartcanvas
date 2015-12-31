@@ -65,19 +65,22 @@ define(function(require, exports, module) {
     	}
     	return ret;
     }
-    function joinTextFont(styles) {
-        // TODO
-        styles.textFont = (styles.fontWeight || 'normal') + ' ' + (styles.fontSize || '12px') + " " + (styles.fontFamily || DEFAULTFONTFAIMILY);
-    }
+    
     function css(el, styles) {
-    	extend(el.style, styles);
+    // 	extend(el.style, styles);
+        if (!styles){
+            return;
+        }
+        for (var prop in styles) {
+            el.setStyle(prop , styles[prop]);
+        }
     	if (styles && (styles.fontSize || styles.fontFamily || styles.fontWeight)) {
-    	    joinTextFont(el.style);
+    	    el.setStyle("textFont" , (el.getStyle("fontWeight") || 'normal') + ' ' + (el.getStyle("fontSize") || '12px') + " " + (el.getStyle("fontFamily") || DEFAULTFONTFAIMILY))
     	}
     }
     
     var classMap = {
-        'text': shapedoms.TextDom ,
+        'text': shapedoms.TextDomGroup ,
         'title': shapedoms.TextDom ,
         'span': shapedoms.SpanDom ,
         'tspan': shapedoms.TSpanDom ,
@@ -101,6 +104,13 @@ define(function(require, exports, module) {
 	        return el;
 	    }
 	    throw new Error("不支持的元素类型：" + nodeName);
+	}
+	// 创建文本对象。
+	function createTextNode(text) {
+	    var element = new shapedoms.TextDom();
+	    element.init();
+	    element.setAttribute("text" , text);
+	    return element;
 	}
     /**
      * Canvas元素包装类
@@ -211,9 +221,12 @@ define(function(require, exports, module) {
                 titleNode = createElement('title');
                 this.element.appendChild(titleNode);
             }
-            titleNode.setAttribute("text" , (String(pick(value), '')).replace(/<[^>]*>/g, ''))
+            titleNode.appendChild(
+                createTextNode(
+                    (String(pick(value), '')).replace(/<[^>]*>/g, '')
+                )
+            );
         },
-        
 	});
 	
 	var defaultSVGElementSetter = SVGElement.prototype.translateXSetter;
@@ -388,7 +401,7 @@ define(function(require, exports, module) {
     		// Skip tspans, add text directly to text node. The forceTSpan is a hook 
     		// used in text outline hack.
     		if (!hasMarkup && !textShadow && !ellipsis && textStr.indexOf(' ') === -1) {
-    		    textNode.setAttribute('text' , unescapeAngleBrackets(textStr));
+    		    textNode.appendChild(createTextNode(unescapeAngleBrackets(textStr)));
     			return;
     		// Complex strings, add more logic
     		} else {
@@ -448,7 +461,7 @@ define(function(require, exports, module) {
     
     							// add the text node
     							//  doc.createTextNode(span)
-    							tspan.appendChild(renderer.createElement('text').attr('text' , span).element);
+    							tspan.appendChild(createTextNode(span));
     
     							if (!spanNo) { // first span in a line, align it to the left
     								if (lineNo && parentX !== null) {
@@ -558,7 +571,7 @@ define(function(require, exports, module) {
     									}
     									if (words.length) {
     								// 		tspan.appendChild(doc.createTextNode(words.join(' ').replace(/- /g, '-')));
-    								        tspan.appendChild(renderer.createElement("text").attr('text' , words.join(' ').replace(/- /g, '-')).element);
+    								        tspan.appendChild(createTextNode(words.join(' ').replace(/- /g, '-')));
     									}
     								}
     								if (wasTooLong) {

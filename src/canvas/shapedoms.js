@@ -267,9 +267,6 @@ define(function(require, exports, module) {
             if (this.parentNode) {
                 this.parentNode.setDirty(true);
             }
-            
-            // if (!this.parentNode)
-            //     console.warn(this.nodeName);
         },
         translateXSetter: function (value) {
             this.setDirty();
@@ -338,11 +335,7 @@ define(function(require, exports, module) {
     function Stop(){ Dom.call(this) }
     ZUtil.inherits(Stop , Dom);
     
-    function DefsDom() { Dom.call(this) }
-    DefsDom.prototype = {
-        nodeName: 'defs' ,
-    }
-    ZUtil.inherits(DefsDom , Dom);
+    
     
     function dimensionConverter(value) {
         value = /px/.test(value) ? parseInt(value) : value;
@@ -495,11 +488,16 @@ define(function(require, exports, module) {
         },
         scaleYSetter: function (value) {
             this.shape.scale[1] = value;
-            // console.log('scale' , value);
             Dom.prototype.scaleYSetter.apply(this , arguments);
         },
     }
     ZUtil.inherits(GDom , Dom);
+    
+    function DefsDom() { GDom , Dom.call(this) }
+    DefsDom.prototype = {
+        nodeName: 'defs' ,
+    }
+    ZUtil.inherits(DefsDom , GDom , Dom);
     
     function CanvasDom() { GDom.call(this) }
     CanvasDom.prototype = {
@@ -590,7 +588,6 @@ define(function(require, exports, module) {
             Dom.prototype.translate.apply(this , arguments);
         },
         rotate: function (rot , ox , oy) {
-            // rot = (rot - 180) * Math.PI / 180;
             this.shape.rotation[0] = rot;
             if (arguments.length > 1) {
                 this.shape.rotation[1] = ox;
@@ -752,37 +749,38 @@ define(function(require, exports, module) {
         "cy": "y"
     })
     
-    function setBrushType(fill , stroke) {
-        if (fill && stroke) {
-            this.shape.style.brushType = "both";
-        } else if (fill) {
-            this.shape.style.brushType = "fill";
-        } else if (stroke) {
-            this.shape.style.brushType = "stroke";
-        } else {
-            this.shape.style.brushType = "none";
-        }
+    function setBrushType(shape) {
+        var fill = shape.__useFill;
+        var stroke = shape.__useStroke;
+        shape.style.brushType = (fill && stroke) ? "both" : 
+                                fill ? "fill" : 
+                                stroke ? "stroke" : 
+                                "none";
     }
     
     var pathAttr2ZValue = merge(attr2ZValue , {
         "fill": function (value) {
             var result;
             if (!value || value === "none") {
-                result = '';
+                result = 'rgba(0,0,0,0)';
+                this.shape.__useFill = false;
             } else {
                 result = value;
+                this.shape.__useFill = true;
             }
-            setBrushType.call(this , result , this.shape.style.strokeColor);
+            setBrushType(this.shape);
             return result;
         } ,
         "stroke": function (value) {
             var result;
             if (!value || value === "none") {
-                result = '';
+                result = 'rgba(0,0,0,0)';
+                this.shape.__useStroke = false;
             } else {
                 result = value;
+                this.shape.__useStroke = true;
             }
-            setBrushType.call(this , this.shape.style.color , result);
+            setBrushType(this.shape);
             return result;
         } ,
         "dashstyle": {

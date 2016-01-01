@@ -752,15 +752,38 @@ define(function(require, exports, module) {
         "cy": "y"
     })
     
+    function setBrushType(fill , stroke) {
+        if (fill && stroke) {
+            this.shape.style.brushType = "both";
+        } else if (fill) {
+            this.shape.style.brushType = "fill";
+        } else if (stroke) {
+            this.shape.style.brushType = "stroke";
+        } else {
+            this.shape.style.brushType = "none";
+        }
+    }
+    
     var pathAttr2ZValue = merge(attr2ZValue , {
         "fill": function (value) {
+            var result;
             if (!value || value === "none") {
-                this.shape.brushType = "stroke";
-                return "rgba(0,0,0,0)";
+                result = '';
             } else {
-                this.shape.brushType = "both";
-                return value;
+                result = value;
             }
+            setBrushType.call(this , result , this.shape.style.strokeColor);
+            return result;
+        } ,
+        "stroke": function (value) {
+            var result;
+            if (!value || value === "none") {
+                result = '';
+            } else {
+                result = value;
+            }
+            setBrushType.call(this , this.shape.style.color , result);
+            return result;
         } ,
         "dashstyle": {
             'dash': 'dashed'

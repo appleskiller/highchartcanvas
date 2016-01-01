@@ -3,6 +3,8 @@ define(function(require, exports, module) {
     var Highcharts = require("highcharts");
     var merge = Highcharts.merge;
     var mathFloor = Math.floor;
+    var mathRound = Math.round;
+    var mathCeil = Math.ceil;
     
     function defined(obj) { return obj !== undefined && obj !== null; }
     
@@ -122,6 +124,15 @@ define(function(require, exports, module) {
             return style;
         }
     }
+    var textFactor = { 14: 0.143 , 15: 0.167 , 16: 0.157 , 17: 0.177 , 18: 0.195 , 19: 0.185 , 20: 0.2 , 21: 0.191 , // 19px
+        22: 0.205 , 23: 0.207 , 24: 0.208 , 25: 0.210 , 26: 0.211 , 27: 0.213 , 28: 0.214 , 29: 0.216 , 30: 0.217 , 31: 0.219 , // 29px
+        32: 0.22  , 33: 0.2204, 34: 0.2208, 35: 0.2212, 36: 0.2216, 37: 0.222, 38: 0.2224, 39: 0.2228 , 40: 0.2232, 41: 0.2236, // 39px
+        42: 0.239 , 43: 0.2392 , 44: 0.2394 , 45: 0.2396 , 46: 0.2398 , 47: 0.24 , 48: 0.2402 , 49: 0.2404 , 50: 0.2406 , 51: 0.2408 , // 49px
+        52: 0.241 , 53: 0.2411 , 54: 0.2412 , 55: 0.2413 , 56: 0.2414 , 57: 0.2415 , 58: 0.2416 , 59: 0.2417 , 60: 0.2418 , 61: 0.2419 , // 59px
+        62: 0.242 , 63: 0.2428 , 64: 0.2436 , 65: 0.2444 , 66: 0.2452 , 67: 0.246 , 68: 0.2468 , 69: 0.2476 , 70: 0.2484 , 71: 0.2492 , // 69px
+        72: 0.25  // 70px
+    }
+    
     /**
      * 扩展文本，使得文本可以继承父容器样式。
      */
@@ -138,6 +149,21 @@ define(function(require, exports, module) {
             } else {
                 Text.prototype.brush.apply(this , arguments);
             }
+        },
+        getRect: function () {
+            if (this.style.__rect) {
+                return this.style.__rect;
+            }
+            var style = mergeParentStyle(this.parent , this.style);
+            var rect = Text.prototype.getRect.call(this , style);
+            // 位置修正
+            var h = Math.max(rect.height , 14);
+            var factor = textFactor[mathRound(h)] || 0.25;
+            var fix = mathCeil(rect.height * factor);
+            rect.height = rect.height + 2 * fix;
+            rect.y = rect.y - fix;
+            this.style.__rect = rect;
+            return rect;
         }
     }
     ZUtil.inherits(HText , Text);
@@ -160,6 +186,10 @@ define(function(require, exports, module) {
                     this[prop] = opts[prop]
                 }
             }
+        } ,
+        clip: function (element) {
+            // 子类实现如何剪裁；
+            this.setDirty();
         } ,
         getDefaultStyle: function () {
             return {};
@@ -314,15 +344,75 @@ define(function(require, exports, module) {
     }
     ZUtil.inherits(DefsDom , Dom);
     
+    function dimensionConverter(value) {
+        value = /px/.test(value) ? parseInt(value) : value;
+        return mathFloor(value)
+    }
+    
+    function convertZValue(converter , key , value) {
+        if (converter && converter[key]) {
+            if (typeof converter[key] === 'function'){
+                return converter[key].call(this , value);
+            } else if (defined(converter[key][value])) {
+                return converter[key][value]
+            }
+        }
+        return value;
+    }
+    
+    var attr2ZStyle = {
+        "x": 'x' ,
+        "y": 'y' ,
+        "width": 'width' ,
+        "height": 'height' ,
+        "text": 'text' ,
+        "text-anchor": "textAlign" ,
+        'verticalAlign': "textBaseline" , // 可能会有问题
+    }
+    
+    var attr2ZValue = {
+        "text-anchor": {
+            'middle': 'center'
+        },
+        "x": dimensionConverter ,
+        "y": dimensionConverter ,
+        "width": dimensionConverter ,
+        "height": dimensionConverter ,
+    }
+    
     function GDom(){ Dom.call(this) }
     GDom.prototype = {
         nodeName: 'g' ,
+        attrConverter: attr2ZStyle ,
+        valueConverter: attr2ZValue ,
         init: function (opts) {
             Dom.prototype.init.apply(this , arguments);
             this.shape = new Group({
                 style: this.style
             });
+        },
+        clip: function (element) {
+            if (element.shape){
+                this.shape.clipShape = element.shape;
+            }
+            Dom.prototype.clip.apply(this , arguments);
         } ,
+        setStyle: function (key , value) {
+            var zProp = this.attrConverter[key]
+            if (zProp) {
+                this.shape.style[zProp] = convertZValue.call(this , this.valueConverter , key , value);
+            } else {
+                this.shape.style[key] = value;
+            }
+            Dom.prototype.setStyle.apply(this , arguments);
+        },
+        setAttribute: function (key, value) {
+            var zProp = this.attrConverter[key]
+            if (zProp) {
+                this.shape.style[zProp] = convertZValue.call(this , this.valueConverter , key , value);
+            }
+            Dom.prototype.setAttribute.apply(this , arguments);
+        },
         appendChild: function (element) {
             Dom.prototype.appendChild.apply(this , arguments);
             if (element.shape) {
@@ -439,16 +529,6 @@ define(function(require, exports, module) {
     }
     ZUtil.inherits(CanvasDom , GDom);
     
-    var attr2ZStyle = {
-        "x": 'x' ,
-        "y": 'y' ,
-        "width": 'width' ,
-        "height": 'height' ,
-        "text": 'text' ,
-        "text-anchor": "textAlign" ,
-        'verticalAlign': "textBaseline" , // 可能会有问题
-    }
-    
     var pathAttr2ZStyle = merge(attr2ZStyle , {
         "d": "path" ,
         "fill": "color" ,
@@ -459,59 +539,6 @@ define(function(require, exports, module) {
         "stroke-linecap": "lineCape" ,
         "dashstyle": 'lineType'
     })
-    
-    var rectAttr2ZStyle = merge(pathAttr2ZStyle , {
-        "rx": "radius" ,
-        "ry": "radius" ,
-    })
-    
-    var circleAttr2ZStyle = merge(pathAttr2ZStyle , {
-        "r": "r" ,
-        "cx": "x" ,
-        "cy": "y"
-    })
-    
-    function dimensionConverter(value) {
-        value = /px/.test(value) ? parseInt(value) : value;
-        return mathFloor(value)
-    }
-    var attr2ZValue = {
-        "text-anchor": {
-            'middle': 'center'
-        },
-        "x": dimensionConverter ,
-        "y": dimensionConverter ,
-        "width": dimensionConverter ,
-        "height": dimensionConverter ,
-    }
-    var pathAttr2ZValue = merge(attr2ZValue , {
-        "fill": {
-            'none': "rgba(0,0,0,0)"
-        } ,
-        "dashstyle": {
-            'dash': 'dashed'
-        }
-    })
-    
-    var rectAttr2ZValue = merge(pathAttr2ZValue , {
-        
-    })
-    
-    var circleAttr2ZValue = merge(pathAttr2ZValue , {
-        "cx": dimensionConverter ,
-        "cy": dimensionConverter ,
-    })
-    
-    function convertZValue(converter , key , value) {
-        if (converter && converter[key]) {
-            if (typeof converter[key] === 'function'){
-                return converter[key].call(this , value);
-            } else if (defined(converter[key][value])) {
-                return converter[key][value]
-            }
-        }
-        return value;
-    }
     
     function ShapeDom() { Dom.call(this) }
     ShapeDom.prototype = {
@@ -636,6 +663,17 @@ define(function(require, exports, module) {
         } 
     }
     
+    function findFirstText(dom) {
+        for (var i = dom.childNodes.length; i--; ) {
+            if (dom.childNodes[i] instanceof TextDom) {
+                return dom.childNodes[i];
+            } else {
+                return findFirstText(dom.childNodes[i]);
+            }
+        }
+        return null;
+    }
+    
     function TextDomGroup() { GDom.call(this); }
     TextDomGroup.prototype = {
         nodeName: 'text' ,
@@ -667,7 +705,12 @@ define(function(require, exports, module) {
             if (this.textDom) {
                 return this.textDom.getBBox();
             }
-            return this.shape.getRect(this.shape.style);
+            var firstText = findFirstText(this);
+            if (firstText) {
+                return firstText.getBBox();
+            } else {
+                return {x: 0 , y: 0 , width: 0 , height: 0};
+            }
         }
     }
     ZUtil.inherits(TextDomGroup , GDom);
@@ -678,7 +721,7 @@ define(function(require, exports, module) {
         ShapClass: HText ,
         getDefaultStyle: function () {
             return TextDom.defaultStyle
-        } 
+        }
     }
     ZUtil.inherits(TextDom , ShapeDom);
     TextDom.defaultStyle = merge(ShapeDom.defaultStyle , {
@@ -697,6 +740,42 @@ define(function(require, exports, module) {
     }
     ZUtil.inherits(TSpanDom , TextDomGroup);
     
+    
+    var rectAttr2ZStyle = merge(pathAttr2ZStyle , {
+        "rx": "radius" ,
+        "ry": "radius" ,
+    })
+    
+    var circleAttr2ZStyle = merge(pathAttr2ZStyle , {
+        "r": "r" ,
+        "cx": "x" ,
+        "cy": "y"
+    })
+    
+    var pathAttr2ZValue = merge(attr2ZValue , {
+        "fill": function (value) {
+            if (!value || value === "none") {
+                this.shape.brushType = "stroke";
+                return "rgba(0,0,0,0)";
+            } else {
+                this.shape.brushType = "both";
+                return value;
+            }
+        } ,
+        "dashstyle": {
+            'dash': 'dashed'
+        }
+    })
+    
+    var rectAttr2ZValue = merge(pathAttr2ZValue , {
+        
+    })
+    
+    var circleAttr2ZValue = merge(pathAttr2ZValue , {
+        "cx": dimensionConverter ,
+        "cy": dimensionConverter ,
+    })
+    
     function PathDom() { ShapeDom.call(this) }
     PathDom.prototype = {
         nodeName: 'path' ,
@@ -713,12 +792,12 @@ define(function(require, exports, module) {
         brushType : 'stroke',
     });
     
-    function ClipPathDom() { PathDom.call(this) }
+    function ClipPathDom() { GDom.call(this) }
     ClipPathDom.prototype = {
         nodeName: 'clipPath' ,
-        ShapClass: Path ,
+        ShapClass: Group ,
     }
-    ZUtil.inherits(ClipPathDom , PathDom);
+    ZUtil.inherits(ClipPathDom , GDom);
     
     function RectDom() { ShapeDom.call(this) }
     RectDom.prototype = {
@@ -768,5 +847,7 @@ define(function(require, exports, module) {
         ClipPathDom: ClipPathDom ,
         TSpanDom: TSpanDom,
         CircleDom: CircleDom,
+        
+        HRectangle: HRectangle
     }
 });

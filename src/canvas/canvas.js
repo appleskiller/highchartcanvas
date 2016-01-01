@@ -22,7 +22,7 @@ define(function(require, exports, module) {
     var UNDEFINED ,
         PX = 'px' ,
         PREFIX = 'highcharts-' ,
-        DEFAULTFONTFAIMILY = 'Microsoft Yahei';
+        DEFAULTFONTFAIMILY = '"Lucida Grande" "Lucida Sans Unicode" Arial Helvetica "Microsoft Yahei"';
     
     var extendClass = Highcharts.extendClass ,
 		merge = Highcharts.merge ,
@@ -75,7 +75,7 @@ define(function(require, exports, module) {
             el.setStyle(prop , styles[prop]);
         }
     	if (styles && (styles.fontSize || styles.fontFamily || styles.fontWeight)) {
-    	    el.setStyle("textFont" , (el.getStyle("fontWeight") || 'normal') + ' ' + (el.getStyle("fontSize") || '12px') + " " + (el.getStyle("fontFamily") || DEFAULTFONTFAIMILY))
+    	    el.setStyle("textFont" , (el.getStyle("fontWeight") || 'normal') + ' ' + (el.getStyle("fontSize") || '12px') + " " + (el.getStyle("fontFamily") || DEFAULTFONTFAIMILY).replace(',' , " "))
     	}
     }
     
@@ -198,6 +198,13 @@ define(function(require, exports, module) {
         translateYSetter: function () {
             SVGElement.prototype.translateYSetter.apply(this , arguments);
         },
+        clip: function (clipRect) {
+            this.attr('clip-path', clipRect ? 'url(' + this.renderer.url + '#' + clipRect.id + ')' : "none");
+            if (clipRect && clipRect.element) {
+                this.element.clip(clipRect.element);
+            }
+            return this;
+        },
         shadow: function (shadowOptions, group, cutOff) {
             // TODO
             return this;
@@ -267,6 +274,7 @@ define(function(require, exports, module) {
     		renderer.box = element;
     		renderer.boxWrapper = boxWrapper;
     		renderer.alignedObjects = [];
+    		renderer.url = '';
     
     		// Page url used for internal references. #24, #672, #1070
     // 		renderer.url = (isFirefox || isWebKit) && doc.getElementsByTagName('base').length ?
@@ -602,20 +610,45 @@ define(function(require, exports, module) {
     	} ,
     	
     	draw: function () {
-    	    var nodes = this.box.childNodes;
-    	    for (var i = 0; i < nodes.length; i++) {
-    	        console.log(nodes[i].nodeName + ' - Canvas')
-    	    }
+    	   // 显示绘制矩形
+    	   //var self = this;
+    	   //setTimeout(function () {
+    	   //    self.findAllElement(self.box , shapedoms.TextDom , function (el) {
+        // 	       self.drawRenderRect(el);
+        // 	   })
+    	   //} , 1000)
+    	   //console.log(this.box);
     	   // this.zr.render();
     	},
+    	findAllElement: function(element , elClass , cb) {
+    	    if (!elClass || element instanceof elClass) {
+    	        cb(element);
+    	    }
+    	    for (var i = 0; i < element.childNodes.length; i++) {
+    	        this.findAllElement(element.childNodes[i] , elClass , cb)
+    	    }
+    	},
+    	drawRenderRect: function(element) {
+    	    var zr = this.zr;
+    	    if (element.getBBox && element.shape) {
+    	        var bbox = element.shape.getRect(element.shape.style);
+    	        console.log(bbox);
+        	    zr.addShape(new shapedoms.HRectangle({
+        	        brushType: 'stroke' ,
+        	        style: {
+        	            x: bbox.x ,
+        	            y: bbox.y ,
+        	            width: bbox.width ,
+        	            height: bbox.height ,
+        	            
+        	            text: element.nodeName ,
+        	            textAlign: "left" ,
+        	            textBaseline: "top"
+        	        }
+        	    }))
+    	    }
+    	} 
 	});
-	SVGRenderer.prototype.draw = function () {
-	    var nodes = this.box.childNodes;
-	    for (var i = 0; i < nodes.length; i++) {
-	        console.log(nodes[i].nodeName + ' - SVG')
-	    }
-	    console.log('----------------------SVG----------------------')
-	}
 	
 	wrap(Highcharts.Chart.prototype , "setTitle" , function (processed , titleOptions, subtitleOptions, redraw) {
 	    var chart = this,

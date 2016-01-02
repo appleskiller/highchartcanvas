@@ -2,6 +2,7 @@ define(function(require, exports, module) {
     "use strict";
     var Highcharts = require("highcharts");
     var merge = Highcharts.merge;
+    var pick = Highcharts.pick;
     var mathFloor = Math.floor;
     var mathRound = Math.round;
     var mathCeil = Math.ceil;
@@ -167,7 +168,6 @@ define(function(require, exports, module) {
         }
     }
     ZUtil.inherits(HText , Text);
-    
     
     function Dom() {};
     Dom.prototype = {
@@ -453,7 +453,7 @@ define(function(require, exports, module) {
             Dom.prototype.translate.apply(this , arguments);
         },
         rotate: function (rot , ox , oy) {
-            rot = (rot) * Math.PI / 180;
+            rot = (rot - 180) * Math.PI / 180;
             this.shape.rotation[0] = rot;
             if (arguments.length > 1) {
                 this.shape.rotation[1] = ox || 0;
@@ -527,17 +527,6 @@ define(function(require, exports, module) {
     }
     ZUtil.inherits(CanvasDom , GDom);
     
-    var pathAttr2ZStyle = merge(attr2ZStyle , {
-        "d": "path" ,
-        "fill": "color" ,
-        "gradient-fill": "color" ,
-        "stroke": "strokeColor" ,
-        "stroke-width": "lineWidth" ,
-        "fill-opacity": "opacity" ,
-        "stroke-linecap": "lineCape" ,
-        "dashstyle": 'lineType'
-    })
-    
     function ShapeDom() { Dom.call(this) }
     ShapeDom.prototype = {
         nodeName: 'shape' ,
@@ -566,7 +555,7 @@ define(function(require, exports, module) {
             Dom.prototype.setStyle.apply(this , arguments);
         },
         setAttribute: function (key, value) {
-            var zProp = this.attrConverter[key]
+            var zProp = this.attrConverter[key];
             if (zProp) {
                 this.shape.style[zProp] = convertZValue.call(this , this.valueConverter , key , value);
             }
@@ -588,6 +577,7 @@ define(function(require, exports, module) {
             Dom.prototype.translate.apply(this , arguments);
         },
         rotate: function (rot , ox , oy) {
+            rot = (rot - 180) * Math.PI / 180;
             this.shape.rotation[0] = rot;
             if (arguments.length > 1) {
                 this.shape.rotation[1] = ox;
@@ -639,10 +629,14 @@ define(function(require, exports, module) {
     
     var TextDomGroupAttrSetter = {
         "x": function (value) {
-            this.translateXSetter(dimensionConverter(value));
+            // this.translateXSetter(dimensionConverter(value));
+            this.__x = value;
+            this._updatePosition();
         } ,
         "y": function (value) {
-            this.translateYSetter(dimensionConverter(value));
+            // this.translateYSetter(dimensionConverter(value));
+            this.__y = value;
+            this._updatePosition();
         } ,
         "text": function (value) {
             if (!this.textDom) {
@@ -676,15 +670,19 @@ define(function(require, exports, module) {
         nodeName: 'text' ,
         ShapClass: Group ,
         textDom: null ,
+        __x: 0 ,
+        __y: 0 ,
+        __translateX: 0 ,
+        __translateY: 0 ,
         init: function (opts) {
             GDom.prototype.init.apply(this , arguments);
             this.shape.__inheritTextStyle = true;
         },
         setAttribute: function (key, value) {
+            GDom.prototype.setAttribute.apply(this , arguments);
             if (TextDomGroupAttrSetter[key]){
                 TextDomGroupAttrSetter[key].call(this , value);
             }
-            GDom.prototype.setAttribute.apply(this , arguments);
         },
         setStyle: function (key , value) {
             GDom.prototype.setStyle.apply(this , arguments);
@@ -708,6 +706,34 @@ define(function(require, exports, module) {
             } else {
                 return {x: 0 , y: 0 , width: 0 , height: 0};
             }
+        },
+        rotate: function (rot , ox , oy) {
+            if (arguments.length > 1) {
+                ox -= pick(this.__x , 0);
+                oy -= pick(this.__y , 0);
+            }
+            GDom.prototype.rotate.call(this , rot , ox , oy);
+        },
+        translate: function (x , y) {
+            this.__translateX = x;
+            this.__translateY = y;
+            GDom.prototype.translate.apply(this , arguments);
+            this._updatePosition();
+        },
+        translateXSetter: function (value) {
+            this.__translateX = value;
+            GDom.prototype.translateXSetter.apply(this , arguments);
+            this._updatePosition();
+        },
+        translateYSetter: function (value) {
+            this.__translateY = value;
+            GDom.prototype.translateYSetter.apply(this , arguments);
+            this._updatePosition();
+        },
+        // 更新grouptranslate和rotation原点位置。
+        _updatePosition: function () {
+            this.shape.position[0] = mathFloor(this.__x + this.__translateX);
+            this.shape.position[1] = mathFloor(this.__y + this.__translateY);
         }
     }
     ZUtil.inherits(TextDomGroup , GDom);
@@ -737,6 +763,16 @@ define(function(require, exports, module) {
     }
     ZUtil.inherits(TSpanDom , TextDomGroup);
     
+    var pathAttr2ZStyle = merge(attr2ZStyle , {
+        "d": "path" ,
+        "fill": "color" ,
+        "gradient-fill": "color" ,
+        "stroke": "strokeColor" ,
+        "stroke-width": "lineWidth" ,
+        "fill-opacity": "opacity" ,
+        "stroke-linecap": "lineCape" ,
+        "dashstyle": 'lineType'
+    })
     
     var rectAttr2ZStyle = merge(pathAttr2ZStyle , {
         "rx": "radius" ,
@@ -782,6 +818,13 @@ define(function(require, exports, module) {
             }
             setBrushType(this.shape);
             return result;
+        } ,
+        "d": function (value) {
+            if (this.style.path !== value) {
+                // 删除cache，已保证zrender使用新的path绘图
+                delete this.style.pathArray;
+            }
+            return value;
         } ,
         "dashstyle": {
             'dash': 'dashed'

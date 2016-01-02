@@ -183,14 +183,14 @@ define(function(require, exports, module) {
             // apply rotation
             if (inverted) {
                 element.rotate(90);
-                element.scale(-1 , 1);
+                // element.scale(-1 , 1);
             } else if (rotation) { // text rotation
                 element.rotate(rotation , (element.getAttribute('x') || 0) , (element.getAttribute('y') || 0));
             }
-            // apply scale
-            if (defined(scaleX) || defined(scaleY)) {
-                element.scale(pick(scaleX, 1) , pick(scaleY, 1));
-            }
+            // apply scale 修正highchart会为dom追加两个scale而导致inverted被覆盖的问题。
+            scaleX = inverted ? -pick(scaleX, 1) : pick(scaleX, 1);
+            scaleY = pick(scaleY, 1);
+            element.scale(scaleX , scaleY);
         },
         translateXSetter: function () {
             SVGElement.prototype.translateXSetter.apply(this , arguments);
@@ -632,7 +632,6 @@ define(function(require, exports, module) {
     	    var zr = this.zr;
     	    if (element.getBBox && element.shape) {
     	        var bbox = element.shape.getRect(element.shape.style);
-    	        console.log(bbox);
         	    zr.addShape(new shapedoms.HRectangle({
         	        brushType: 'stroke' ,
         	        style: {

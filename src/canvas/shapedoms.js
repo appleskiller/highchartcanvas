@@ -645,13 +645,7 @@ define(function(require, exports, module) {
                 this.insertBefore(this.textDom);
             }
             this.textDom.setAttribute("text" , value);
-        } ,
-        "text-anchor": function (value) {
-            this.shape.style["textAlign"] = convertZValue.call(this , attr2ZValue , "textAlign" , value);
-        } ,
-        'verticalAlign': function (value) {
-            this.shape.style["textBaseline"] = convertZValue.call(this , attr2ZValue , "textBaseline" , value);
-        } 
+        }
     }
     
     function findFirstText(dom) {

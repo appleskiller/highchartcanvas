@@ -173,9 +173,12 @@ define(function(require, exports, module) {
     Dom.prototype = {
         namespaceURI: SVG_NS, // 伪装成SVG
         nodeName: 'div',
+        renderer: null ,
         attributes: null,
         childNodes: null,
-        init: function (opts) {
+        firstChild: null,
+        init: function (renderer , opts) {
+            this.renderer = renderer;
             // 浅表克隆
             this.attributes = {};
             this.childNodes = [];
@@ -215,25 +218,39 @@ define(function(require, exports, module) {
             // console.log(this.nodeName + " : del " + key);
         },
         appendChild: function (element) {
+            if (!element) {
+                return;
+            }
             if (element.parentNode){
                 element.parentNode.removeChild(element);
             }
             this.childNodes.push(element);
+            this.firstChild = this.childNodes[0];
             element.parentNode = this;
-            element.setDirty();
+            // element.setDirty();
+            this.setDirty();
         },
         insertBefore: function (newItem, existingItem) {
+            if (!newItem) {
+                return;
+            }
             if (newItem.parentNode) {
                 newItem.parentNode.removeChild(newItem);
             }
             this.childNodes.splice(this.childNodes.indexOf(existingItem), 0, newItem);
+            this.firstChild = this.childNodes[0];
             newItem.parentNode = this;
-            newItem.setDirty();
+            // newItem.setDirty();
+            this.setDirty();
         },
         removeChild: function (element) {
+            if (!element) {
+                return;
+            }
             var ind = this.childNodes.indexOf(element);
             if (ind !== -1){
                 this.childNodes.splice(ind , 1);
+                this.firstChild = this.childNodes[0];
                 this.setDirty();
                 delete element.parentNode;
             }
@@ -378,7 +395,7 @@ define(function(require, exports, module) {
         nodeName: 'g' ,
         attrConverter: attr2ZStyle ,
         valueConverter: attr2ZValue ,
-        init: function (opts) {
+        init: function (renderer , opts) {
             Dom.prototype.init.apply(this , arguments);
             this.shape = new Group({
                 style: this.style
@@ -407,6 +424,9 @@ define(function(require, exports, module) {
             Dom.prototype.setAttribute.apply(this , arguments);
         },
         appendChild: function (element) {
+            if (!element) {
+                return;
+            }
             Dom.prototype.appendChild.apply(this , arguments);
             if (element.shape) {
                 if (element.shape.parent) {
@@ -416,6 +436,9 @@ define(function(require, exports, module) {
             }
         },
         insertBefore: function (newItem, existingItem) {
+            if (!newItem) {
+                return;
+            }
             Dom.prototype.insertBefore.apply(this , arguments);
             if (newItem && newItem.shape) {
                 if (newItem.shape.parent){
@@ -439,6 +462,9 @@ define(function(require, exports, module) {
             }
         },
         removeChild: function (element) {
+            if (!element) {
+                return;
+            }
             Dom.prototype.removeChild.apply(this , arguments);
             if (element.shape){
                 var ind = this.shape._children.indexOf(element.shape);
@@ -503,7 +529,7 @@ define(function(require, exports, module) {
     CanvasDom.prototype = {
         nodeName: 'canvas' ,
         nativeRenderer: null ,
-        init: function (opts) {
+        init: function (renderer , opts) {
             GDom.prototype.init.apply(this , arguments);
             this.nativeRenderer = opts.nativeRenderer;
             this.nativeRenderer.addGroup(this.shape);
@@ -534,7 +560,7 @@ define(function(require, exports, module) {
         defaultOptions: null ,
         attrConverter: attr2ZStyle ,
         valueConverter: attr2ZValue ,
-        init: function (opts) {
+        init: function (renderer , opts) {
             Dom.prototype.init.apply(this , arguments);
             this.shape = new this.ShapClass({
                 style: this.style
@@ -641,7 +667,7 @@ define(function(require, exports, module) {
         "text": function (value) {
             if (!this.textDom) {
                 this.textDom = new TextDom();
-                this.textDom.init();
+                this.textDom.init(this.renderer);
                 this.insertBefore(this.textDom);
             }
             this.textDom.setAttribute("text" , value);
@@ -668,7 +694,7 @@ define(function(require, exports, module) {
         __y: 0 ,
         __translateX: 0 ,
         __translateY: 0 ,
-        init: function (opts) {
+        init: function (renderer , opts) {
             GDom.prototype.init.apply(this , arguments);
             this.shape.__inheritTextStyle = true;
         },
@@ -753,7 +779,7 @@ define(function(require, exports, module) {
     
     function TSpanDom() { TextDomGroup.call(this) }
     TSpanDom.prototype = {
-        nodeName: 'tspan' ,
+        nodeName: 'tspan'
     }
     ZUtil.inherits(TSpanDom , TextDomGroup);
     
@@ -791,6 +817,10 @@ define(function(require, exports, module) {
     var pathAttr2ZValue = merge(attr2ZValue , {
         "fill": function (value) {
             var result;
+            if (this instanceof RectDom) {
+                console.log(this.shape.style.width , this.shape.style.height);
+            }
+            
             if (!value || value === "none") {
                 result = 'rgba(0,0,0,0)';
                 this.shape.__useFill = false;

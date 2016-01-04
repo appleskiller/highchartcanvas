@@ -97,10 +97,10 @@ define(function(require, exports, module) {
     }
 
 	// 创建DOMElement适配对象
-	function createElement(nodeName , opts) {
+	function createElement(nodeName , renderer , opts) {
 	    if (classMap[nodeName]) {
 	        var el = new classMap[nodeName]();
-	        el.init(opts);
+	        el.init(renderer , opts);
 	        return el;
 	    }
 	    throw new Error("不支持的元素类型：" + nodeName);
@@ -118,7 +118,7 @@ define(function(require, exports, module) {
 	var CanvasElement = extendClass(SVGElement , {
 	    init: function (renderer, nodeName , elOpts) {
     		var wrapper = this;
-    		wrapper.element = createElement(nodeName , elOpts);
+    		wrapper.element = createElement(nodeName , renderer , elOpts);
     		wrapper.renderer = renderer;
     	},
     	css: function (styles) {
@@ -225,7 +225,7 @@ define(function(require, exports, module) {
     	titleSetter: function (value) {
             var titleNode = this.element.getElementsByTagName('title')[0];
             if (!titleNode) {
-                titleNode = createElement('title');
+                titleNode = createElement('title' , this.renderer);
                 this.element.appendChild(titleNode);
             }
             titleNode.appendChild(
@@ -610,43 +610,8 @@ define(function(require, exports, module) {
     	} ,
     	
     	draw: function () {
-    	   // 显示绘制矩形
-    	   //var self = this;
-    	   //setTimeout(function () {
-    	   //    self.findAllElement(self.box , shapedoms.TextDom , function (el) {
-        // 	       self.drawRenderRect(el);
-        // 	   })
-    	   //} , 1000)
-    	   //console.log(this.box);
     	   // this.zr.render();
-    	},
-    	findAllElement: function(element , elClass , cb) {
-    	    if (!elClass || element instanceof elClass) {
-    	        cb(element);
-    	    }
-    	    for (var i = 0; i < element.childNodes.length; i++) {
-    	        this.findAllElement(element.childNodes[i] , elClass , cb)
-    	    }
-    	},
-    	drawRenderRect: function(element) {
-    	    var zr = this.zr;
-    	    if (element.getBBox && element.shape) {
-    	        var bbox = element.shape.getRect(element.shape.style);
-        	    zr.addShape(new shapedoms.HRectangle({
-        	        brushType: 'stroke' ,
-        	        style: {
-        	            x: bbox.x ,
-        	            y: bbox.y ,
-        	            width: bbox.width ,
-        	            height: bbox.height ,
-        	            
-        	            text: element.nodeName ,
-        	            textAlign: "left" ,
-        	            textBaseline: "top"
-        	        }
-        	    }))
-    	    }
-    	} 
+    	}
 	});
 	
 	wrap(Highcharts.Chart.prototype , "setTitle" , function (processed , titleOptions, subtitleOptions, redraw) {

@@ -6,6 +6,8 @@ define(function(require, exports, module) {
     var mathFloor = Math.floor;
     var mathRound = Math.round;
     var mathCeil = Math.ceil;
+    var mathMax = Math.max;
+    var mathMin = Math.min;
     
     function defined(obj) { return obj !== undefined && obj !== null; }
     
@@ -479,7 +481,7 @@ define(function(require, exports, module) {
             Dom.prototype.translate.apply(this , arguments);
         },
         rotate: function (rot , ox , oy) {
-            rot = (rot - 180) * Math.PI / 180;
+            rot = (-rot) * Math.PI / 180;
             this.shape.rotation[0] = rot;
             if (arguments.length > 1) {
                 this.shape.rotation[1] = ox || 0;
@@ -603,7 +605,7 @@ define(function(require, exports, module) {
             Dom.prototype.translate.apply(this , arguments);
         },
         rotate: function (rot , ox , oy) {
-            rot = (rot - 180) * Math.PI / 180;
+            rot = (-rot) * Math.PI / 180;
             this.shape.rotation[0] = rot;
             if (arguments.length > 1) {
                 this.shape.rotation[1] = ox;
@@ -684,6 +686,20 @@ define(function(require, exports, module) {
         }
         return null;
     }
+    function onlyOneTextDom(dom) {
+        var result = [];
+        for (var i = dom.childNodes.length; i--; ) {
+            if (dom.childNodes[i] instanceof TextDom) {
+                result.push(dom.childNodes[i]);
+            } else {
+                result = result.concat(findFirstText(dom.childNodes[i]));
+            }
+            if (result.length > 1) {
+                break;
+            }
+        }
+        return result;
+    }
     
     function TextDomGroup() { GDom.call(this); }
     TextDomGroup.prototype = {
@@ -720,12 +736,34 @@ define(function(require, exports, module) {
             if (this.textDom) {
                 return this.textDom.getBBox();
             }
-            var firstText = findFirstText(this);
-            if (firstText) {
-                return firstText.getBBox();
-            } else {
+            // 如果只有一个TextDom元素
+            var onlyOnes = onlyOneTextDom(this);
+            if (!onlyOnes.length) {
                 return {x: 0 , y: 0 , width: 0 , height: 0};
             }
+            if (onlyOnes.length === 1) {
+                return onlyOnes[0].getBBox();
+            }
+            
+            var ww = 0 , hh = 0 , x = 0 , y = 0 , dx , dy , box , node;
+            var nx = 0 , ny = 0;
+            for (var i = 0; i < this.childNodes.length; i++) {
+                node = this.childNodes[i];
+                x = node.getAttribute("x");
+                y = node.getAttribute("y");
+                dx = node.getAttribute("dx") || 0;
+                dy = node.getAttribute("dy") || 0;
+                nx = defined(x) ? x : nx + dx;
+                ny = defined(y) ? y : ny + dy;
+                node.setAttribute("x" , nx);
+                node.setAttribute("y" , ny);
+                box = node.getBBox();
+                nx = nx + box.width;
+                
+                ww = mathMax(ww , nx);
+                hh = mathMax(hh , ny + box.height);
+            }
+            return {x: 0 , y: 0 , width: ww , height: hh};
         },
         rotate: function (rot , ox , oy) {
             if (arguments.length > 1) {

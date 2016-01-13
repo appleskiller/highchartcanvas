@@ -74,8 +74,8 @@ define(function(require, exports, module) {
         for (var prop in styles) {
             el.setStyle(prop , styles[prop]);
         }
-    	if (styles && (styles.fontSize || styles.fontFamily || styles.fontWeight)) {
-    	    el.setStyle("textFont" , (el.getStyle("fontWeight") || 'normal') + ' ' + (el.getStyle("fontSize") || '12px') + " " + (el.getStyle("fontFamily") || DEFAULTFONTFAIMILY).replace(',' , " "))
+    	if (styles && (styles.fontSize || styles.fontFamily || styles.fontWeight || styles.fontStyle)) {
+    	    el.setStyle("textFont" , (el.getStyle("fontStyle") || '') + " " + (el.getStyle("fontWeight") || 'normal') + ' ' + (el.getStyle("fontSize") || '12px') + " " + (el.getStyle("fontFamily") || DEFAULTFONTFAIMILY).replace(',' , " "))
     	}
     }
     
@@ -93,7 +93,8 @@ define(function(require, exports, module) {
         'circle': shapedoms.CircleDom,
         'linearGradient': shapedoms.LinearGradient,
         'radialGradient': shapedoms.RadialGradient,
-        'stop': shapedoms.Stop
+        'stop': shapedoms.Stop,
+        'image': shapedoms.ImageDom
     }
 
 	// 创建DOMElement适配对象

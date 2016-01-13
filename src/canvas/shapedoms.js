@@ -17,7 +17,8 @@ define(function(require, exports, module) {
     var Text = require("zrender/shape/Text");
     var Path = require("zrender/shape/Path");
     var Rectangle = require("zrender/shape/Rectangle");
-    var Circle = require("zrender/shape/Circle")
+    var Circle = require("zrender/shape/Circle");
+    var Image = require("zrender/shape/Image");
     var Group = require('zrender/Group');
     var ZUtil = require("zrender/tool/util");
     
@@ -205,7 +206,9 @@ define(function(require, exports, module) {
         setAttribute: function (key, value) {
             this.attributes[key] = value;
             this.setDirty();
-            // console.log(this.nodeName + " : set " + key + ' = ' + value);
+            if (this.nodeName === "image"){
+                console.log(this.nodeName + " : set " + key + ' = ' + value);
+            }
         },
         getStyle: function (key) {
             return this.style[key];
@@ -941,6 +944,24 @@ define(function(require, exports, module) {
         brushType : 'both',
     });
     
+    var imageAttr2ZStyle = merge(pathAttr2ZStyle , {
+        "hc-svg-href": "image" ,
+    });
+    var imageAttr2ZValue = merge(pathAttr2ZValue , {
+        
+    })
+    function ImageDom() { ShapeDom.call(this) }
+    ImageDom.prototype = {
+        nodeName: 'image' ,
+        ShapClass: Image ,
+        attrConverter: imageAttr2ZStyle ,
+        valueConverter: imageAttr2ZValue ,
+        getDefaultStyle: function () {
+            return {}
+        }
+    }
+    ZUtil.inherits(ImageDom , ShapeDom);
+    
     function CircleDom() { ShapeDom.call(this) }
     CircleDom.prototype = {
         nodeName: 'circle' ,
@@ -973,6 +994,7 @@ define(function(require, exports, module) {
         ClipPathDom: ClipPathDom ,
         TSpanDom: TSpanDom,
         CircleDom: CircleDom,
+        ImageDom: ImageDom,
         
         HRectangle: HRectangle
     }

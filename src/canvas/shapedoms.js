@@ -206,9 +206,7 @@ define(function(require, exports, module) {
         setAttribute: function (key, value) {
             this.attributes[key] = value;
             this.setDirty();
-            if (this.nodeName === "image"){
-                console.log(this.nodeName + " : set " + key + ' = ' + value);
-            }
+            // console.log(this.nodeName + " : set " + key + ' = ' + value);
         },
         getStyle: function (key) {
             return this.style[key];
@@ -383,6 +381,7 @@ define(function(require, exports, module) {
         "text": 'text' ,
         "text-anchor": "textAlign" ,
         'verticalAlign': "textBaseline" , // 可能会有问题
+        'visibility': 'ignore'
     }
     
     var attr2ZValue = {
@@ -393,10 +392,13 @@ define(function(require, exports, module) {
         "y": dimensionConverter ,
         "width": dimensionConverter ,
         "height": dimensionConverter ,
+        "visibility": function (value) {
+            return value === "hidden"
+        }
     }
     
     var groupAttr2ZStyle = merge(attr2ZStyle , {
-        "opacity": "opacity"
+        "opacity": "opacity" ,
     });
     
     var groupAttr2ZValue = merge(attr2ZValue , {
@@ -453,6 +455,11 @@ define(function(require, exports, module) {
                     element.shape.parent.removeChild(element.shape);
                 }
                 this.shape.addChild(element.shape);
+                // 套用可见性设置
+                var visible = this.getAttribute("opacity");
+                if (defined(visible)) {
+                    element.setAttribute("opacity" , visible)
+                }
             }
         },
         insertBefore: function (newItem, existingItem) {
@@ -478,6 +485,12 @@ define(function(require, exports, module) {
                         childrens[i] = switching;
                         switching = temp;
                     }
+                }
+                
+                // 套用可见性设置
+                var visible = this.getAttribute("opacity");
+                if (defined(visible)) {
+                    newItem.setAttribute("opacity" , visible)
                 }
             }
         },
@@ -873,10 +886,6 @@ define(function(require, exports, module) {
     var pathAttr2ZValue = merge(attr2ZValue , {
         "fill": function (value) {
             var result;
-            if (this instanceof RectDom) {
-                console.log(this.shape.style.width , this.shape.style.height);
-            }
-            
             if (!value || value === "none") {
                 result = 'rgba(0,0,0,0)';
                 this.shape.__useFill = false;

@@ -1,8 +1,6 @@
 # highchartcanvas
 
 TODO List:
-* ImageDom实现
-* 改善opacity的套用
 * 支持虚线stroke
 * 支持文本阴影
 * 修复文本样式bug

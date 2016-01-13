@@ -395,11 +395,26 @@ define(function(require, exports, module) {
         "height": dimensionConverter ,
     }
     
+    var groupAttr2ZStyle = merge(attr2ZStyle , {
+        "opacity": "opacity"
+    });
+    
+    var groupAttr2ZValue = merge(attr2ZValue , {
+        // opacity 将遍历到叶子节点逐个套用
+        "opacity": function (value) {
+            var node;
+            for (var i = 0; i < this.childNodes.length; i++) {
+                this.childNodes[i].setAttribute("opacity" , value);
+            }
+            return value;
+        }
+    });
+    
     function GDom(){ Dom.call(this) }
     GDom.prototype = {
         nodeName: 'g' ,
-        attrConverter: attr2ZStyle ,
-        valueConverter: attr2ZValue ,
+        attrConverter: groupAttr2ZStyle ,
+        valueConverter: groupAttr2ZValue ,
         init: function (renderer , opts) {
             Dom.prototype.init.apply(this , arguments);
             this.shape = new Group({

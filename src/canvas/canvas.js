@@ -243,7 +243,49 @@ define(function(require, exports, module) {
         },
         shadow: function (shadowOptions, group, cutOff) {
             // TODO
+            // var i,
+            //     element = this.element,
+            //     shadowWidth,
+            //     shadowElementOpacity,
+            //     opts,
+            //     transform;
+
+            // if (shadowOptions) {
+            //     shadowElementOpacity = shadowOptions.opacity || 0.15;
+            //     shadowWidth = pInt(pick(shadowOptions.width, 3));
+            //     opts = {
+            //         'isShadow': 'true',
+            //         'shadow-color': shadowOptions.color || 'black',
+            //         'shadow-blur': shadowWidth,
+            //         'shadow-offsetX': pick(shadowOptions.offsetX, 1),
+            //         'shadow-offsetY': pick(shadowOptions.offsetY, 1)
+            //     }
+            //     attr(element , opts);
+            // }
             return this;
+        },
+        applyTextShadow: function (textShadow) {
+            var elem = this.element,
+                shadows,
+                hasContrast = textShadow.indexOf('contrast') !== -1,
+                opts;
+
+            if (hasContrast) {
+                textShadow = textShadow.replace(/contrast/g, this.renderer.getContrast(elem.style.fill || elem.style.color));
+            }
+            shadows = textShadow.split(/\s?,\s?/g);
+            textShadow = trim(shadows[0] || "");
+            if (textShadow) {
+                textShadow = textShadow.split(' ');
+                opts = {
+                    'isShadow': 'true',
+                    'shadow-color': textShadow[textShadow.length - 1] || 'black',
+                    'shadow-blur': pInt(textShadow[textShadow.length - 2]),
+                    'shadow-offsetX': textShadow[0],
+                    'shadow-offsetY': textShadow[1]
+                }
+                attr(elem , opts);
+            }
         },
         dashstyleSetter: function (value) {
             var i;
@@ -253,7 +295,7 @@ define(function(require, exports, module) {
                 var dashStyle = value.indexOf('dot') !== -1 ? "dotted" : 
                                 value.indexOf("dash") !== -1 ? "dashed" :
                                 "solid";
-                this.element.setAttribute('dashstyle', value);
+                this.element.setAttribute('dashstyle', dashStyle);
                 value = value
                     .replace('shortdashdotdot', '3,1,1,1,1,1,')
                     .replace('shortdashdot', '3,1,1,1')

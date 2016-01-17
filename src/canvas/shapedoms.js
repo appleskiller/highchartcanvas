@@ -406,7 +406,11 @@ define(function(require, exports, module) {
         "text-anchor": "textAlign" ,
         'verticalAlign': "textBaseline" , // 可能会有问题
         'visibility': 'ignore',
-        "fill": "color"
+        "fill": "color",
+        'shadow-color': "shadowColor",
+        'shadow-blur': "shadowBlur",
+        'shadow-offsetX': "shadowOffsetX",
+        'shadow-offsetY': "shadowOffsetY"
     }
     
     var attr2ZValue = {

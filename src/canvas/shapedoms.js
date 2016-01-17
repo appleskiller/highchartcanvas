@@ -10,6 +10,13 @@ define(function(require, exports, module) {
     var mathMin = Math.min;
     
     function defined(obj) { return obj !== undefined && obj !== null; }
+    function nextFrame(cb) {
+        if (window.requestAnimationFrame) {
+            return window.requestAnimationFrame(cb);
+        } else {
+            return setTimeout(cb , 16.7);
+        }
+    }
     
     var SVG_NS = 'http://www.w3.org/2000/svg';
     
@@ -120,6 +127,23 @@ define(function(require, exports, module) {
         }
     }
     ZUtil.inherits(HRectangle , Rectangle);
+    /**
+     * 为Path扩展dash
+     */
+    function HPath(options) {
+        Rectangle.call(this , options);
+    }
+    HPath.prototype = {
+        buildPath : function (ctx, style) {
+            if (ctx.setLineDash && (style.lineType === "dashed" || style.lineType === "dotted")) {
+                    ctx.setLineDash(style.dashArray);
+            } else {
+                // TODO 适配实现
+            }
+            Path.prototype.buildPath.apply(this , arguments);
+        }
+    }
+    ZUtil.inherits(HPath , Path)
     
     function mergeParentStyle(parent , style) {
         if (parent && parent.__inheritTextStyle) {
@@ -573,10 +597,10 @@ define(function(require, exports, module) {
             var self = this;
             if (!this.__dirtyFlag) {
                 this.__dirtyFlag = true;
-                setTimeout(function() {
+                nextFrame(function() {
                     self.nativeRenderer.render();
                     self.__dirtyFlag = false;
-                }, 10);
+                });
             }
         } ,
         appendChild: function (element) {
@@ -586,13 +610,21 @@ define(function(require, exports, module) {
     }
     ZUtil.inherits(CanvasDom , GDom);
     
+    var shapeAttr2ZStyle = merge(attr2ZStyle , {
+        "stroke-dasharray": "dashArray" ,
+        "dashstyle": 'lineType'
+    });
+    
+    var shapeAttr2ZValue = merge(attr2ZValue , {
+    });
+    
     function ShapeDom() { Dom.call(this) }
     ShapeDom.prototype = {
         nodeName: 'shape' ,
         ShapClass: null ,
         defaultOptions: null ,
-        attrConverter: attr2ZStyle ,
-        valueConverter: attr2ZValue ,
+        attrConverter: shapeAttr2ZStyle ,
+        valueConverter: shapeAttr2ZValue ,
         init: function (renderer , opts) {
             Dom.prototype.init.apply(this , arguments);
             this.shape = new this.ShapClass({
@@ -852,15 +884,14 @@ define(function(require, exports, module) {
     }
     ZUtil.inherits(TSpanDom , TextDomGroup);
     
-    var pathAttr2ZStyle = merge(attr2ZStyle , {
+    var pathAttr2ZStyle = merge(shapeAttr2ZStyle , {
         "d": "path" ,
         "fill": "color" ,
         "gradient-fill": "color" ,
         "stroke": "strokeColor" ,
         "stroke-width": "lineWidth" ,
         "fill-opacity": "opacity" ,
-        "stroke-linecap": "lineCape" ,
-        "dashstyle": 'lineType'
+        "stroke-linecap": "lineCape"
     })
     
     var rectAttr2ZStyle = merge(pathAttr2ZStyle , {
@@ -932,7 +963,7 @@ define(function(require, exports, module) {
     function PathDom() { ShapeDom.call(this) }
     PathDom.prototype = {
         nodeName: 'path' ,
-        ShapClass: Path ,
+        ShapClass: HPath ,
         attrConverter: pathAttr2ZStyle ,
         valueConverter: pathAttr2ZValue ,
         getDefaultStyle: function () {

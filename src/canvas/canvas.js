@@ -210,7 +210,34 @@ define(function(require, exports, module) {
             // TODO
             return this;
         },
-        
+        dashstyleSetter: function (value) {
+            var i;
+            value = value && value.toLowerCase();
+            if (value) {
+                // 适配属性
+                var dashStyle = value.indexOf('dot') !== -1 ? "dotted" : 
+                                value.indexOf("dash") !== -1 ? "dashed" :
+                                "solid";
+                this.element.setAttribute('dashstyle', value);
+                value = value
+                    .replace('shortdashdotdot', '3,1,1,1,1,1,')
+                    .replace('shortdashdot', '3,1,1,1')
+                    .replace('shortdot', '1,1,')
+                    .replace('shortdash', '3,1,')
+                    .replace('longdash', '8,3,')
+                    .replace(/dot/g, '1,3,')
+                    .replace('dash', '4,3,')
+                    .replace(/,$/, '')
+                    .split(',');
+
+                i = value.length;
+                while (i--) {
+                    value[i] = pInt(value[i]) * this['stroke-width'];
+                    value[i] = isNaN(value[i]) ? 'none' : value[i];
+                }
+                this.element.setAttribute('stroke-dasharray', value);
+            }
+        },
     	// setters
     	fillSetter: function (value, prop, element) {
             if (typeof value === 'string') {

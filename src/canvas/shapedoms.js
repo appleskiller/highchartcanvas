@@ -405,7 +405,8 @@ define(function(require, exports, module) {
         "text": 'text' ,
         "text-anchor": "textAlign" ,
         'verticalAlign': "textBaseline" , // 可能会有问题
-        'visibility': 'ignore'
+        'visibility': 'ignore',
+        "fill": "color"
     }
     
     var attr2ZValue = {
@@ -886,7 +887,6 @@ define(function(require, exports, module) {
     
     var pathAttr2ZStyle = merge(shapeAttr2ZStyle , {
         "d": "path" ,
-        "fill": "color" ,
         "gradient-fill": "color" ,
         "stroke": "strokeColor" ,
         "stroke-width": "lineWidth" ,
@@ -945,9 +945,6 @@ define(function(require, exports, module) {
                 delete this.style.pathArray;
             }
             return value;
-        } ,
-        "dashstyle": {
-            'dash': 'dashed'
         }
     })
     

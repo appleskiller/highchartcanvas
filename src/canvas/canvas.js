@@ -41,6 +41,13 @@ define(function(require, exports, module) {
     function isArray(obj) { return Object.prototype.toString.call(obj) === '[object Array]'; }
     function isNumber(n) { return typeof n === 'number'; }
     function pInt(s, mag) { return parseInt(s, mag || 10); }
+    function trim(str) {
+        if (str.trim){
+            return str.trim();
+        } else {
+            return str.replace(/^(\s|\u00A0)+/,'').replace(/(\s|\u00A0)+$/,'');
+        }
+    }
     
 	function attr(elem, prop, value) {
     	var key,
@@ -50,7 +57,11 @@ define(function(require, exports, module) {
     	if (isString(prop)) {
     		// set the value
     		if (defined(value)) {
-    			elem.setAttribute(prop, value);
+    		    if (prop === "style") {
+    		        elStyleString(elem , value);
+    		    } else {
+    		        elem.setAttribute(prop, value);
+    		    }
     
     		// get the value
     		} else if (elem && elem.getAttribute) { // elem not defined when printing pie demo...
@@ -60,10 +71,34 @@ define(function(require, exports, module) {
     	// else if prop is defined, it is a hash of key/value pairs
     	} else if (defined(prop) && isObject(prop)) {
     		for (key in prop) {
-    			elem.setAttribute(key, prop[key]);
+    		    if (key === "style") {
+    		        elStyleString(elem , prop[key]);
+    		    } else {
+    			    elem.setAttribute(key, prop[key]);
+    		    }
     		}
     	}
     	return ret;
+    }
+    
+    function elStyleString(el , styleStr) {
+        if (!styleStr){
+            return;
+        }
+        var cssObj = {};
+        var styles = styleStr.split(";");
+        var props , p , v;
+        for (var i = 0; i < styles.length; i++) {
+            props = styles[i].split(":");
+            if (props && props.length >= 2) {
+                p = trim(props[0]);
+                v = trim(props[1]);
+                if (p && v) {
+                    cssObj[p] = v;
+                }
+            }
+        }
+        css(el , cssObj);
     }
     
     function css(el, styles) {

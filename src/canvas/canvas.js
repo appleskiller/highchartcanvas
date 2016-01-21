@@ -241,6 +241,12 @@ define(function(require, exports, module) {
             }
             return this;
         },
+        on: function (eventType, handler) {
+            console.log("on: " , eventType);
+            SVGElement.prototype.on.apply(this , arguments);
+            this.element._on(eventType, handler);
+            return this;
+        },
         shadow: function (shadowOptions, group, cutOff) {
             // TODO
             // var i,

@@ -228,9 +228,15 @@ define(function(require, exports, module) {
             return this.attributes[key];
         },
         setAttribute: function (key, value) {
+            if (key === "class") {
+                this.addClass(value);
+            }
             this.attributes[key] = value;
             this.setDirty();
             // console.log(this.nodeName + " : set " + key + ' = ' + value);
+        },
+        addClass: function (value) {
+            // body...
         },
         getStyle: function (key) {
             return this.style[key];
@@ -243,6 +249,9 @@ define(function(require, exports, module) {
             delete this.attributes[key];
             this.setDirty();
             // console.log(this.nodeName + " : del " + key);
+        },
+        _on: function (type, fn) {
+            // 子类实现
         },
         appendChild: function (element) {
             if (!element) {
@@ -446,11 +455,13 @@ define(function(require, exports, module) {
         nodeName: 'g' ,
         attrConverter: groupAttr2ZStyle ,
         valueConverter: groupAttr2ZValue ,
+        __events__: null ,
         init: function (renderer , opts) {
             Dom.prototype.init.apply(this , arguments);
             this.shape = new Group({
                 style: this.style
             });
+            this.__events__ = {};
         },
         clip: function (element) {
             if (element.shape){
@@ -474,6 +485,12 @@ define(function(require, exports, module) {
             }
             Dom.prototype.setAttribute.apply(this , arguments);
         },
+        _on: function (type, fn) {
+            for (var i = 0; i < this.childNodes.length; i++) {
+                this.childNodes[i]._on(type , fn);
+            }
+            this.__events__[type] = fn;
+        },
         appendChild: function (element) {
             if (!element) {
                 return;
@@ -488,6 +505,10 @@ define(function(require, exports, module) {
                 var visible = this.getAttribute("opacity");
                 if (defined(visible)) {
                     element.setAttribute("opacity" , visible)
+                }
+                // 追加事件函数
+                for (var prop in this.__events__) {
+                    element._on(prop , this.__events__[prop]);
                 }
             }
         },
@@ -623,6 +644,15 @@ define(function(require, exports, module) {
     var shapeAttr2ZValue = merge(attr2ZValue , {
     });
     
+    var checkHoverabled = {
+        "mouseout": true ,
+        "mouseover": true ,
+        "mousemove": true ,
+    }
+    var checkClickabled = {
+        "click": true
+    }
+    
     function ShapeDom() { Dom.call(this) }
     ShapeDom.prototype = {
         nodeName: 'shape' ,
@@ -635,8 +665,8 @@ define(function(require, exports, module) {
             this.shape = new this.ShapClass({
                 style: this.style
             });
-            // TODO 处理高亮样式
             this.shape.hoverable = false;
+            this.shape.clickable = false;
         } ,
         getDefaultStyle: function () {
             return ShapeDom.defaultStyle;
@@ -663,6 +693,11 @@ define(function(require, exports, module) {
                 delete this.shape.style[zProp];
             }
             Dom.prototype.setAttribute.apply(this , arguments);
+        },
+        _on: function (type, fn) {
+            this.shape.hoverable = this.shape.hoverable || checkHoverabled[type] || false;
+            this.shape.clickable = this.shape.clickable || checkClickabled[type] || false;
+            this.shape["on" + type] = fn;
         },
         getBBox: function () {
             return this.shape.getRect(this.shape.style);

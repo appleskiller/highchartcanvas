@@ -253,6 +253,9 @@ define(function(require, exports, module) {
         _on: function (type, fn) {
             // 子类实现
         },
+        _off: function (type , fn) {
+            // 子类实现
+        },
         appendChild: function (element) {
             if (!element) {
                 return;
@@ -415,6 +418,7 @@ define(function(require, exports, module) {
         "text-anchor": "textAlign" ,
         'verticalAlign': "textBaseline" , // 可能会有问题
         'visibility': 'ignore',
+        "opacity": "opacity" ,
         "fill": "color",
         'shadow-color': "shadowColor",
         'shadow-blur': "shadowBlur",
@@ -436,7 +440,7 @@ define(function(require, exports, module) {
     }
     
     var groupAttr2ZStyle = merge(attr2ZStyle , {
-        "opacity": "opacity" ,
+        
     });
     
     var groupAttr2ZValue = merge(attr2ZValue , {
@@ -491,6 +495,12 @@ define(function(require, exports, module) {
             }
             this.__events__[type] = fn;
         },
+        _off: function (type , fn) {
+            for (var i = 0; i < this.childNodes.length; i++) {
+                this.childNodes[i]._off(type , fn);
+            }
+            this.__events__ = {};
+        },
         appendChild: function (element) {
             if (!element) {
                 return;
@@ -542,6 +552,10 @@ define(function(require, exports, module) {
                 if (defined(visible)) {
                     newItem.setAttribute("opacity" , visible)
                 }
+                // 追加事件函数
+                for (var prop in this.__events__) {
+                    newItem._on(prop , this.__events__[prop]);
+                }
             }
         },
         removeChild: function (element) {
@@ -552,6 +566,7 @@ define(function(require, exports, module) {
             if (element.shape){
                 var ind = this.shape._children.indexOf(element.shape);
                 if (ind !== -1){
+                    element._off();
                     this.shape.removeChild(element.shape);
                 }
             }
@@ -697,7 +712,12 @@ define(function(require, exports, module) {
         _on: function (type, fn) {
             this.shape.hoverable = this.shape.hoverable || checkHoverabled[type] || false;
             this.shape.clickable = this.shape.clickable || checkClickabled[type] || false;
-            this.shape["on" + type] = fn;
+            this.shape.bind(type , fn);
+        },
+        _off: function (type , fn) {
+            if (!arguments.length) {
+                this.shape._handlers = {};
+            }
         },
         getBBox: function () {
             return this.shape.getRect(this.shape.style);

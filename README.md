@@ -3,7 +3,6 @@
 TODO List:
 
 * 用户交互处理
-* 完善形状的opacity
 * 支持高亮样式
 * 修复文本样式bug(http://code.hcharts.cn/demos/hhhhDj)
 * 修复文本BBox计算的bug（http://code.hcharts.cn/demos/hhhhDc）

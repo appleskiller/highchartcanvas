@@ -478,17 +478,18 @@ define(function(require, exports, module) {
 
             if (!useHTML) {
                 wrapper.xSetter = function (value, key, element) {
-                    var tspans = element.getElementsByTagName('tspan'),
-                        tspan,
-                        parentVal = element.getAttribute(key),
-                        i;
-                    for (i = 0; i < tspans.length; i++) {
-                        tspan = tspans[i];
-                        // If the x values are equal, the tspan represents a linebreak
-                        if (tspan.getAttribute(key) === parentVal) {
-                            tspan.setAttribute(key, value);
-                        }
-                    }
+                    // 这里不需要如此处理
+                    // var tspans = element.getElementsByTagName('tspan'),
+                    //     tspan,
+                    //     parentVal = element.getAttribute(key),
+                    //     i;
+                    // for (i = 0; i < tspans.length; i++) {
+                    //     tspan = tspans[i];
+                    //     // If the x values are equal, the tspan represents a linebreak
+                    //     if (tspan.getAttribute(key) === parentVal) {
+                    //         tspan.setAttribute(key, value);
+                    //     }
+                    // }
                     element.setAttribute(key, value);
                 };
             }

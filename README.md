@@ -2,8 +2,6 @@
 
 TODO List:
 
-* 修复文本样式bug(http://code.hcharts.cn/demos/hhhhDj)
-* 修复文本BBox计算的bug（http://code.hcharts.cn/demos/hhhhDc）
 * 修复plot bands不能显示文本的bug（http://code.hcharts.cn/demos/hhhhxD）
 * 修复剪裁bug（http://code.hcharts.cn/demos/hhhhDx）
 * 完善tooltip实现
@@ -15,3 +13,4 @@ TODO List:
 * 修复tooltip的zlevel（http://code.hcharts.cn/demos/hhhhij）
 * 修复钻取交互的bug（http://code.hcharts.cn/demos/hhhhij）
 * 修复zoom问题（http://code.hcharts.cn/demos/hhhhDx）
+* 修复tooltip出现起始点的bug（http://code.hcharts.cn/demos/hhhhDc）

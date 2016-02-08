@@ -94,11 +94,21 @@ define(function(require, exports, module) {
                 p = trim(props[0]);
                 v = trim(props[1]);
                 if (p && v) {
+                    p = styleStr2Prop(p);
                     cssObj[p] = v;
                 }
             }
         }
         css(el , cssObj);
+    }
+    function styleStr2Prop(styleStr) {
+        var ind = styleStr.indexOf("-");
+        if (ind !== -1) {
+            var s = styleStr.charAt(ind+1);
+            styleStr = styleStr.replace("-"+s , s.toUpperCase());
+            return styleStr2Prop(styleStr);
+        }
+        return styleStr;
     }
     
     function css(el, styles) {

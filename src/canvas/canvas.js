@@ -374,6 +374,10 @@ define(function(require, exports, module) {
     			element
             
     		renderer.zr = zrender.init(container);
+    		// 改变zRender的Painter行为，不使用hover层绘制元素高亮
+    		renderer.zr.painter.refreshHover = function () {
+    		    return this;
+    		}
     		boxWrapper = renderer.createElement('canvas' , {nativeRenderer: renderer.zr})
     			.attr({
     				version: '1.1'
@@ -771,6 +775,22 @@ define(function(require, exports, module) {
         });
         chart.layOutTitles(redraw);
 	})
+	
+    wrap(Highcharts.Pointer.prototype , "setDOMEvents" , function (processed) {
+        processed.call(this);
+        var pointer = this,
+            container = pointer.chart.container;
+        container.onclick = function (e) {
+            if (pointer.chart && pointer.chart.hoverPoint && pointer.chart.hoverPoint.graphic) {
+                var event = {}
+                for (var p in e) {
+                    event[p] = e[p];
+                }
+                event.target = pointer.chart.hoverPoint.graphic.element;
+            }
+            pointer.onContainerClick(event);
+        }
+    })
     
     Highcharts.CanvasElement = CanvasElement;
     Highcharts.CanvasRenderer = CanvasRenderer;

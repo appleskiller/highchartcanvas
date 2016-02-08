@@ -435,7 +435,11 @@ define(function(require, exports, module) {
         "width": dimensionConverter ,
         "height": dimensionConverter ,
         "visibility": function (value) {
-            return value === "hidden"
+            var ignore = (value === "hidden");
+            if (this.shape) {
+                this.shape.ignore = ignore;
+            }
+            return ignore;
         }
     }
     
@@ -705,6 +709,9 @@ define(function(require, exports, module) {
         removeAttribute: function (key) {
             var zProp = this.attrConverter[key]
             if (zProp) {
+                if (key === "stroke") {
+                    this.setAttribute(key , "none");
+                }
                 delete this.shape.style[zProp];
             }
             Dom.prototype.setAttribute.apply(this , arguments);
@@ -712,7 +719,11 @@ define(function(require, exports, module) {
         _on: function (type, fn) {
             this.shape.hoverable = this.shape.hoverable || checkHoverabled[type] || false;
             this.shape.clickable = this.shape.clickable || checkClickabled[type] || false;
-            this.shape.bind(type , fn);
+            var self = this;
+            this.shape.bind(type , function (e) {
+                e.target = self;
+                fn(e);
+            });
         },
         _off: function (type , fn) {
             if (!arguments.length) {

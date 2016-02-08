@@ -2,8 +2,6 @@
 
 TODO List:
 
-* 用户交互处理
-* 支持高亮样式
 * 修复文本样式bug(http://code.hcharts.cn/demos/hhhhDj)
 * 修复文本BBox计算的bug（http://code.hcharts.cn/demos/hhhhDc）
 * 修复plot bands不能显示文本的bug（http://code.hcharts.cn/demos/hhhhxD）
@@ -14,3 +12,6 @@ TODO List:
 * 支持html文本
 * 完善适配浏览器的虚线stroke实现
 * 完善形状阴影
+* 修复tooltip的zlevel（http://code.hcharts.cn/demos/hhhhij）
+* 修复钻取交互的bug（http://code.hcharts.cn/demos/hhhhij）
+* 修复zoom问题（http://code.hcharts.cn/demos/hhhhDx）

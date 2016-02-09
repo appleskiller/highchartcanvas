@@ -14,3 +14,4 @@ TODO List:
 * 修复钻取交互的bug（http://code.hcharts.cn/demos/hhhhij）
 * 修复zoom问题（http://code.hcharts.cn/demos/hhhhDx）
 * 修复tooltip出现起始点的bug（http://code.hcharts.cn/demos/hhhhDc）
+* 完善默认字体样式（http://code.hcharts.cn/demos/hhhhxD）

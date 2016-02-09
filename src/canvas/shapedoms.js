@@ -603,7 +603,7 @@ define(function(require, exports, module) {
             Dom.prototype.translateYSetter.apply(this , arguments);
         },
         rotationSetter: function (value) {
-            this.shape.rotation[0] = value;
+            this.shape.rotation[0] = value || 0;
             Dom.prototype.rotationSetter.apply(this , arguments);
         },
         verticalAlignSetter: function (value) {

@@ -2,8 +2,8 @@
 
 TODO List:
 
-* 修复plot bands不能显示文本的bug（http://code.hcharts.cn/demos/hhhhxD）
 * 修复剪裁bug（http://code.hcharts.cn/demos/hhhhDx）
+* 实现canvas分层渲染
 * 完善tooltip实现
 * 支持线性渐变填充
 * 支持径向渐变填充

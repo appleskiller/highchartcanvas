@@ -443,6 +443,16 @@ define(function(require, exports, module) {
         }
     }
     
+    var removeAttrValue = {
+        "stroke": function (key , zProp) {
+            this.setAttribute(key , "none");
+            delete this.shape.style[zProp]
+        },
+        "visibility": function (key , zProp) {
+            delete this.shape[zProp];
+        }
+    }
+    
     var groupAttr2ZStyle = merge(attr2ZStyle , {
         
     });
@@ -492,6 +502,13 @@ define(function(require, exports, module) {
                 this.shape.style[zProp] = convertZValue.call(this , this.valueConverter , key , value);
             }
             Dom.prototype.setAttribute.apply(this , arguments);
+        },
+        removeAttribute: function (key) {
+            var zProp = this.attrConverter[key]
+            if (zProp) {
+                removeAttrValue[key] && removeAttrValue[key].call(this , key , zProp);
+            }
+            Dom.prototype.removeAttribute.apply(this , arguments);
         },
         _on: function (type, fn) {
             for (var i = 0; i < this.childNodes.length; i++) {
@@ -675,13 +692,13 @@ define(function(require, exports, module) {
     function ShapeDom() { Dom.call(this) }
     ShapeDom.prototype = {
         nodeName: 'shape' ,
-        ShapClass: null ,
+        ShapeClass: null ,
         defaultOptions: null ,
         attrConverter: shapeAttr2ZStyle ,
         valueConverter: shapeAttr2ZValue ,
         init: function (renderer , opts) {
             Dom.prototype.init.apply(this , arguments);
-            this.shape = new this.ShapClass({
+            this.shape = new this.ShapeClass({
                 style: this.style
             });
             this.shape.hoverable = false;
@@ -707,12 +724,9 @@ define(function(require, exports, module) {
             Dom.prototype.setAttribute.apply(this , arguments);
         },
         removeAttribute: function (key) {
-            var zProp = this.attrConverter[key]
+            var zProp = this.attrConverter[key];
             if (zProp) {
-                if (key === "stroke") {
-                    this.setAttribute(key , "none");
-                }
-                delete this.shape.style[zProp];
+                removeAttrValue[key] && removeAttrValue[key].call(this , key , zProp);
             }
             Dom.prototype.setAttribute.apply(this , arguments);
         },
@@ -838,7 +852,7 @@ define(function(require, exports, module) {
     function TextDomGroup() { GDom.call(this); }
     TextDomGroup.prototype = {
         nodeName: 'text' ,
-        ShapClass: Group ,
+        ShapeClass: Group ,
         textDom: null ,
         __x: 0 ,
         __y: 0 ,
@@ -933,7 +947,7 @@ define(function(require, exports, module) {
     function TextDom() { ShapeDom.call(this) }
     TextDom.prototype = {
         nodeName: 'text' ,
-        ShapClass: HText ,
+        ShapeClass: HText ,
         getDefaultStyle: function () {
             return TextDom.defaultStyle
         }
@@ -1030,7 +1044,7 @@ define(function(require, exports, module) {
     function PathDom() { ShapeDom.call(this) }
     PathDom.prototype = {
         nodeName: 'path' ,
-        ShapClass: HPath ,
+        ShapeClass: HPath ,
         attrConverter: pathAttr2ZStyle ,
         valueConverter: pathAttr2ZValue ,
         getDefaultStyle: function () {
@@ -1046,14 +1060,14 @@ define(function(require, exports, module) {
     function ClipPathDom() { GDom.call(this) }
     ClipPathDom.prototype = {
         nodeName: 'clipPath' ,
-        ShapClass: Group ,
+        ShapeClass: Group ,
     }
     ZUtil.inherits(ClipPathDom , GDom);
     
     function RectDom() { ShapeDom.call(this) }
     RectDom.prototype = {
         nodeName: 'rect' ,
-        ShapClass: HRectangle ,
+        ShapeClass: HRectangle ,
         attrConverter: rectAttr2ZStyle ,
         valueConverter: rectAttr2ZValue ,
         getDefaultStyle: function () {
@@ -1075,7 +1089,7 @@ define(function(require, exports, module) {
     function ImageDom() { ShapeDom.call(this) }
     ImageDom.prototype = {
         nodeName: 'image' ,
-        ShapClass: Image ,
+        ShapeClass: Image ,
         attrConverter: imageAttr2ZStyle ,
         valueConverter: imageAttr2ZValue ,
         getDefaultStyle: function () {
@@ -1087,7 +1101,7 @@ define(function(require, exports, module) {
     function CircleDom() { ShapeDom.call(this) }
     CircleDom.prototype = {
         nodeName: 'circle' ,
-        ShapClass: Circle ,
+        ShapeClass: Circle ,
         attrConverter: circleAttr2ZStyle ,
         valueConverter: circleAttr2ZValue ,
         getDefaultStyle: function () {

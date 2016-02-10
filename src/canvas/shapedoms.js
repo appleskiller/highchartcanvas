@@ -143,7 +143,7 @@ define(function(require, exports, module) {
             Path.prototype.buildPath.apply(this , arguments);
         }
     }
-    ZUtil.inherits(HPath , Path)
+    ZUtil.inherits(HPath , Path);
     
     function mergeParentStyle(parent , style) {
         if (parent && parent.__inheritTextStyle) {
@@ -541,6 +541,7 @@ define(function(require, exports, module) {
                 for (var prop in this.__events__) {
                     element._on(prop , this.__events__[prop]);
                 }
+                this._childAdded(element , this.shape._children.length - 1);
             }
         },
         insertBefore: function (newItem, existingItem) {
@@ -577,6 +578,7 @@ define(function(require, exports, module) {
                 for (var prop in this.__events__) {
                     newItem._on(prop , this.__events__[prop]);
                 }
+                this._childAdded(newItem , from , true);
             }
         },
         removeChild: function (element) {
@@ -589,8 +591,17 @@ define(function(require, exports, module) {
                 if (ind !== -1){
                     element._off();
                     this.shape.removeChild(element.shape);
+                    this._childRemoved(element , ind)
                 }
             }
+        },
+        _childAdded: function (element , index , insert) {
+            if (element.shape && "zlevel" in this.shape) {
+                setZLevel(element.shape , this.shape.zlevel);
+            }
+        },
+        _childRemoved: function (element , index) {
+            // body...
         },
         translate: function (x , y) {
             this.shape.position[0] = x;
@@ -644,6 +655,15 @@ define(function(require, exports, module) {
     }
     ZUtil.inherits(DefsDom , GDom , Dom);
     
+    function setZLevel(shape , zlevel) {
+        shape.zlevel = zlevel;
+        if (shape instanceof Group) {
+            shape.eachChild(function (child) {
+                setZLevel(child , zlevel);
+            });
+        }
+    }
+    
     function CanvasDom() { GDom.call(this) }
     CanvasDom.prototype = {
         nodeName: 'canvas' ,
@@ -651,7 +671,8 @@ define(function(require, exports, module) {
         init: function (renderer , opts) {
             GDom.prototype.init.apply(this , arguments);
             this.nativeRenderer = opts.nativeRenderer;
-            this.nativeRenderer.addGroup(this.shape);
+            // this.nativeRenderer.addElement(this.shape);
+            this.shape.zlevel = 10000;
             return this;
         },
         __dirtyFlag: false ,
@@ -664,10 +685,57 @@ define(function(require, exports, module) {
                     self.__dirtyFlag = false;
                 });
             }
-        } ,
-        appendChild: function (element) {
-            GDom.prototype.appendChild.apply(this , arguments);
-            // console.log(element.nodeName , 'append to canvas')
+        },
+        _childAdded: function (element , index , insert) {
+            if (element.shape) {
+                this.nativeRenderer.addElement(element.shape);
+                var zl;
+                var afterChild = this.shape._children[index + 1];
+                var beforeChild = this.shape._children[index - 1];
+                if (insert) {
+                    if (!afterChild && !beforeChild) {
+                        zl = index;
+                    } else if (!afterChild) {
+                        zl = beforeChild.zlevel + 1;
+                    } else if (!beforeChild) {
+                        zl = afterChild.zlevel - 1;
+                    } else {
+                        if (afterChild.zlevel !== beforeChild.zlevel + 1) {
+                            zl = beforeChild.zlevel + 1;
+                        } else {
+                            var childrens = this.shape._children;
+                            var i
+                            if (index * 2 > childrens.length) {
+                                zl = afterChild.zlevel;
+                                for (i = index + 1; i < childrens.length; i++) {
+                                    // childrens[i].zlevel = childrens[i].zlevel + 1;
+                                    setZLevel(childrens[i] , childrens[i].zlevel + 1);
+                                    // this.nativeRenderer.modLayer(childrens[i].zlevel);
+                                }
+                            } else {
+                                zl = beforeChild.zlevel;
+                                for (i = index - 1; i >= 0; i--) {
+                                    // childrens[i].zlevel = childrens[i].zlevel - 1;
+                                    setZLevel(childrens[i] , childrens[i].zlevel - 1);
+                                    // this.nativeRenderer.modLayer(childrens[i].zlevel);
+                                }
+                            }
+                        }
+                    }
+                } else if (beforeChild) {
+                    zl = beforeChild.zlevel + 1;
+                } else {
+                    zl = index;
+                }
+                setZLevel(element.shape , zl);
+                // element.shape.zlevel = zl;
+                // this.nativeRenderer.modLayer(zl);
+            }
+        },
+        _childRemoved: function (element , index) {
+            if (element.shape) {
+                this.nativeRenderer.delElement(element.shape.id);
+            }
         },
     }
     ZUtil.inherits(CanvasDom , GDom);

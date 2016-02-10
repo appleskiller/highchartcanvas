@@ -209,6 +209,12 @@ define(function(require, exports, module) {
     
     		return elemWrapper;
     	},
+    	getBBox: function (reload, rot) {
+    	    if (this.element instanceof shapedoms.TextDomGroup) {
+    	        reload = true;
+    	    }
+    	    return SVGElement.prototype.getBBox.call(this , reload , rot);
+    	},
     	updateTransform: function () {
             var wrapper = this,
                 translateX = wrapper.translateX || 0,

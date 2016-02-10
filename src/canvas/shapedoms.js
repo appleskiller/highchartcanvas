@@ -671,8 +671,7 @@ define(function(require, exports, module) {
         init: function (renderer , opts) {
             GDom.prototype.init.apply(this , arguments);
             this.nativeRenderer = opts.nativeRenderer;
-            // this.nativeRenderer.addElement(this.shape);
-            this.shape.zlevel = 10000;
+            this.nativeRenderer.addElement(this.shape);
             return this;
         },
         __dirtyFlag: false ,
@@ -688,7 +687,6 @@ define(function(require, exports, module) {
         },
         _childAdded: function (element , index , insert) {
             if (element.shape) {
-                this.nativeRenderer.addElement(element.shape);
                 var zl;
                 var afterChild = this.shape._children[index + 1];
                 var beforeChild = this.shape._children[index - 1];
@@ -708,16 +706,12 @@ define(function(require, exports, module) {
                             if (index * 2 > childrens.length) {
                                 zl = afterChild.zlevel;
                                 for (i = index + 1; i < childrens.length; i++) {
-                                    // childrens[i].zlevel = childrens[i].zlevel + 1;
                                     setZLevel(childrens[i] , childrens[i].zlevel + 1);
-                                    // this.nativeRenderer.modLayer(childrens[i].zlevel);
                                 }
                             } else {
                                 zl = beforeChild.zlevel;
                                 for (i = index - 1; i >= 0; i--) {
-                                    // childrens[i].zlevel = childrens[i].zlevel - 1;
                                     setZLevel(childrens[i] , childrens[i].zlevel - 1);
-                                    // this.nativeRenderer.modLayer(childrens[i].zlevel);
                                 }
                             }
                         }
@@ -728,13 +722,6 @@ define(function(require, exports, module) {
                     zl = index;
                 }
                 setZLevel(element.shape , zl);
-                // element.shape.zlevel = zl;
-                // this.nativeRenderer.modLayer(zl);
-            }
-        },
-        _childRemoved: function (element , index) {
-            if (element.shape) {
-                this.nativeRenderer.delElement(element.shape.id);
             }
         },
     }

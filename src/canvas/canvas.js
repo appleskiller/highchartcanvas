@@ -244,6 +244,14 @@ define(function(require, exports, module) {
             scaleY = pick(scaleY, 1);
             element.scale(scaleX , scaleY);
         },
+        symbolAttr: function (hash) {
+            SVGElement.prototype.symbolAttr.apply(this , arguments);
+            attr(this.element , "symbol-attr" , { x: this.x , y: this.y , r: this.r , innerR: this.innerR ,
+                start: this.start , end: this.end ,
+                height: this.height , width: this.width ,
+                anchorX: this.anchorX , anchorY: this.anchorY
+            });
+        },
         translateXSetter: function () {
             SVGElement.prototype.translateXSetter.apply(this , arguments);
         },
@@ -345,7 +353,7 @@ define(function(require, exports, module) {
                 this.colorGradient(value, prop, element);
                 var key = element.gradient;
                 var gradient = this.renderer.gradients[key];
-                element.setAttribute('gradient-' + prop , gradient.element.toColor(element.style));
+                element.setAttribute('gradient-' + prop , gradient.element.toColor());
                 // console.log(element.nodeName , "setAttribute: gradient-" + prop)
             }
         },

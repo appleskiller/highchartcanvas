@@ -3,6 +3,7 @@ define(function(require, exports, module) {
     var Highcharts = require("highcharts");
     var merge = Highcharts.merge;
     var pick = Highcharts.pick;
+    var wrap = Highcharts.wrap;
     var mathFloor = Math.floor;
     var mathRound = Math.round;
     var mathCeil = Math.ceil;
@@ -21,6 +22,7 @@ define(function(require, exports, module) {
     var SVG_NS = 'http://www.w3.org/2000/svg';
     
     var zColor = require("zrender/tool/color");
+    var Base = require("zrender/shape/Base");
     var Text = require("zrender/shape/Text");
     var Path = require("zrender/shape/Path");
     var Rectangle = require("zrender/shape/Rectangle");
@@ -29,6 +31,14 @@ define(function(require, exports, module) {
     var Group = require('zrender/Group');
     var ZUtil = require("zrender/tool/util");
     
+    wrap(Base.prototype , "beforeBrush" , function (processed , ctx, isHighlight) {
+        var style = processed.call(this , ctx , isHighlight);
+        // 处理渐变
+        if (typeof style.color === "function") {
+            ctx["fillStyle"] = style.color(this);
+        }
+        return style;
+    })
     /**
      * 修复矩形奇数像素宽度边框绘制结果模糊的问题。
      */
@@ -136,7 +146,7 @@ define(function(require, exports, module) {
     HPath.prototype = {
         buildPath : function (ctx, style) {
             if (ctx.setLineDash && (style.lineType === "dashed" || style.lineType === "dotted")) {
-                    ctx.setLineDash(style.dashArray);
+                ctx.setLineDash(style.dashArray);
             } else {
                 // TODO 适配实现
             }
@@ -356,16 +366,37 @@ define(function(require, exports, module) {
     function LinearGradient(){ Dom.call(this) }
     LinearGradient.prototype = {
         __stops: null ,
-        toColor: function (style) {
-            // TODO 尚未应用转换
-            if (!this.__stops){
-                this.__stops = collectColorList(this.childNodes);
+        __colorFN: null ,
+        toColor: function () {
+            var self = this;
+            if (!this.__colorFN) {
+                this.__colorFN = function (shape) {
+                    // TODO 尚未应用转换
+                    if (!self.__stops){
+                        self.__stops = collectColorList(self.childNodes);
+                    }
+                    var attrs = self.attributes;
+                    var x1 , y1 , x2 , y2;
+                    var gradientUnits = attrs["gradientUnits"];
+                    if (gradientUnits === "userSpaceOnUse") {
+                        x1 = attrs["x1"];
+                        y1 = attrs["y1"];
+                        x2 = attrs["x2"];
+                        y2 = attrs["y2"];
+                    } else {
+                        var box = shape.getRect(shape.style);
+                        x1 = box.x + attrs["x1"] * box.width;
+                        y1 = box.y + attrs["y1"] * box.height;
+                        x2 = box.x + attrs["x2"] * box.width;
+                        y2 = box.y + attrs["y2"] * box.height;
+                    }
+                    
+                    return zColor.getLinearGradient(
+                        x1 , y1 , x2 , y2 ,
+                        self.__stops);
+                }
             }
-            var attrs = this.attributes;
-            return zColor.getLinearGradient(
-                attrs["x1"] * style.x , style.y + attrs["y1"] * style.y , 
-                attrs["x2"] * style.width , attrs["y2"] * style.height ,
-                this.__stops);
+            return this.__colorFN;
         }
     };
     ZUtil.inherits(LinearGradient , Dom);
@@ -373,17 +404,36 @@ define(function(require, exports, module) {
     function RadialGradient(){ Dom.call(this) }
     RadialGradient.prototype = {
         __stops: null ,
-        toColor: function (style) {
-            // TODO 尚未应用转换
-            if (!this.__stops){
-                this.__stops = collectColorList(this.childNodes);
+        __colorFN: null ,
+        toColor: function () {
+            var self = this;
+            if (!this.__colorFN) {
+                this.__colorFN = function (shape) {
+                    // TODO 尚未应用转换
+                    if (!self.__stops){
+                        self.__stops = collectColorList(self.childNodes);
+                    }
+                    var attrs = self.attributes;
+                    var style = shape.style;
+                    var gradientUnits = attrs["gradientUnits"];
+                    var cx , cy , r;
+                    if (gradientUnits === "userSpaceOnUse") {
+                        cx = attrs["cx"];
+                        cy = attrs["cy"];
+                        r = attrs["r"]
+                    } else {
+                        r = style.symbolAttr ? style.symbolAttr.r : style.r || 10;
+                        r = attrs["r"] * r*2;
+                        cx = style.x + attrs["cx"]*r*2 - r
+                        cy = style.y + attrs["cy"]*r*2 - r;
+                    }
+                    return zColor.getRadialGradient(
+                        cx , cy , 0 ,
+                        cx , cy , r ,
+                        self.__stops);
+                }
             }
-            var attrs = this.attributes;
-            var cx = style.x - attrs["cx"] * style.r , cy = style.y - attrs["cy"] * style.r;
-            return zColor.getRadialGradient(
-                cx , cy , 0 ,
-                cx , cy , attrs["r"] * style.r ,
-                this.__stops);
+            return this.__colorFN;
         }
     };
     ZUtil.inherits(RadialGradient , Dom);
@@ -1030,7 +1080,8 @@ define(function(require, exports, module) {
         "stroke": "strokeColor" ,
         "stroke-width": "lineWidth" ,
         "fill-opacity": "opacity" ,
-        "stroke-linecap": "lineCape"
+        "stroke-linecap": "lineCape",
+        "symbol-attr": "symbolAttr"
     })
     
     var rectAttr2ZStyle = merge(pathAttr2ZStyle , {

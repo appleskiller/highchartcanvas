@@ -246,7 +246,9 @@ define(function(require, exports, module) {
         },
         symbolAttr: function (hash) {
             SVGElement.prototype.symbolAttr.apply(this , arguments);
-            attr(this.element , "symbol-attr" , { x: this.x , y: this.y , r: this.r , innerR: this.innerR ,
+            attr(this.element , "symbol-attr" , { 
+                symbolName: this.symbolName ,
+                x: this.x , y: this.y , r: this.r , innerR: this.innerR ,
                 start: this.start , end: this.end ,
                 height: this.height , width: this.width ,
                 anchorX: this.anchorX , anchorY: this.anchorY
@@ -267,9 +269,16 @@ define(function(require, exports, module) {
         },
         on: function (eventType, handler) {
             // console.log("on: " , eventType);
-            SVGElement.prototype.on.apply(this , arguments);
-            this.element._on(eventType, handler);
+            // SVGElement.prototype.on.apply(this , arguments);
+            this.element.bind(eventType, function (e) {
+                e.target = e.srcElement = this;
+                handler(e);
+            });
             return this;
+        },
+        destroy: function () {
+            this.element.unbind();
+            SVGElement.prototype.destroy.apply(this , arguments);
         },
         shadow: function (shadowOptions, group, cutOff) {
             // TODO
@@ -378,6 +387,21 @@ define(function(require, exports, module) {
     CanvasElement.prototype.scaleXSetter = CanvasElement.prototype.scaleYSetter = function (value, key) {
         this.element[key + 'Setter'](value);
         defaultSVGElementSetter.apply(this , arguments);
+    };
+    CanvasElement.prototype['stroke-widthSetter'] = CanvasElement.prototype.strokeSetter = function (value, key, element) {
+        this[key] = value;
+        if (!element) {
+            return;
+        }
+        if (this.stroke && this['stroke-width']) {
+            this.strokeWidth = this['stroke-width'];
+            CanvasElement.prototype.fillSetter.call(this, this.stroke, 'stroke', element);
+            element.setAttribute('stroke-width', this['stroke-width']);
+            this.hasStroke = true;
+        } else if (key === 'stroke-width' && value === 0 && this.hasStroke) {
+            element.removeAttribute('stroke');
+            this.hasStroke = false;
+        }
     };
 	
 	/**

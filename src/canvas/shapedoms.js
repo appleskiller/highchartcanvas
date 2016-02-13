@@ -23,14 +23,18 @@ define(function(require, exports, module) {
     
     var zColor = require("zrender/tool/color");
     var Base = require("zrender/shape/Base");
+    var Eventful = require("zrender/mixin/Eventful");
     var Text = require("zrender/shape/Text");
     var Path = require("zrender/shape/Path");
+    var Sector = require("zrender/shape/Sector");
     var Rectangle = require("zrender/shape/Rectangle");
     var Circle = require("zrender/shape/Circle");
     var Image = require("zrender/shape/Image");
     var Group = require('zrender/Group');
     var ZUtil = require("zrender/tool/util");
+    var Area = require("zrender/tool/area");
     
+    // 如果color为函数，则计算函数值来获得最后的color
     wrap(Base.prototype , "beforeBrush" , function (processed , ctx, isHighlight) {
         var style = processed.call(this , ctx , isHighlight);
         // 处理渐变
@@ -38,6 +42,13 @@ define(function(require, exports, module) {
             ctx["fillStyle"] = style.color(this);
         }
         return style;
+    })
+    // 如果brushType为none则标记为silent
+    wrap(Base.prototype , "isSilent" , function (processed) {
+        if (this.style && this.style.brushType === "none") {
+            return true;
+        }
+        return processed.call(this);
     })
     /**
      * 修复矩形奇数像素宽度边框绘制结果模糊的问题。
@@ -137,6 +148,30 @@ define(function(require, exports, module) {
         }
     }
     ZUtil.inherits(HRectangle , Rectangle);
+    
+    var pathRectMethod = {
+        "arc": function (symbolAttr) {
+            var arc = new Sector();
+            var style = {
+                x: symbolAttr.x , y: symbolAttr.y ,
+                r0: symbolAttr.innerR , r: symbolAttr.r ,
+                startAngle: symbolAttr.start * 180 / Math.PI , endAngle: symbolAttr.end * 180 / Math.PI ,
+                clockWise: true
+            }
+            return arc.getRect(style);
+        }
+    }
+    
+    var pathCoverMethod = {
+        "arc": function (symbolAttr , x , y) {
+            return Area.isInsideSector(
+                symbolAttr.x, symbolAttr.y, symbolAttr.innerR, symbolAttr.r,
+                symbolAttr.start, symbolAttr.end , false ,
+                x, y
+            )
+        }
+    }
+    
     /**
      * 为Path扩展dash
      */
@@ -151,6 +186,31 @@ define(function(require, exports, module) {
                 // TODO 适配实现
             }
             Path.prototype.buildPath.apply(this , arguments);
+        },
+        getRect: function (style) {
+            if (style.symbolAttr && !style.__rect) {
+                var symbolName = style.symbolAttr.symbolName;
+                style.__rect = pathRectMethod[symbolName] ? pathRectMethod[symbolName](style.symbolAttr) : null;
+            }
+            return Path.prototype.getRect.apply(this , arguments);
+        },
+        isCover: function (x , y) {
+            var originPos = this.transformCoordToLocal(x, y);
+            x = originPos[0];
+            y = originPos[1];
+            // 快速预判并保留判断矩形
+            if (this.isCoverRect(x, y)) {
+                // 矩形内
+                var style = this.style;
+                var symbolName = style.symbolAttr ? style.symbolAttr.symbolName : null;
+                if (symbolName && pathCoverMethod[symbolName]) {
+                    return pathCoverMethod[symbolName](style.symbolAttr , x , y);
+                }else {
+                    return Area.isInside(this, this.style, x, y);
+                }
+            }
+            
+            return false;
         }
     }
     ZUtil.inherits(HPath , Path);
@@ -206,7 +266,7 @@ define(function(require, exports, module) {
     }
     ZUtil.inherits(HText , Text);
     
-    function Dom() {};
+    function Dom() { Eventful.call(this) };
     Dom.prototype = {
         namespaceURI: SVG_NS, // 伪装成SVG
         nodeName: 'div',
@@ -260,11 +320,18 @@ define(function(require, exports, module) {
             this.setDirty();
             // console.log(this.nodeName + " : del " + key);
         },
-        _on: function (type, fn) {
-            // 子类实现
+        addEventListener: function (type , fn) {
+            if (type === "mouseenter") type = "mouseover";
+            else if (type === "mouseleave") type = "mouseout";
+            this.bind(type , fn);
         },
-        _off: function (type , fn) {
-            // 子类实现
+        removeEventListener: function (type , fn) {
+            if (type === "mouseenter") type = "mouseover";
+            else if (type === "mouseleave") type = "mouseout";
+            this.unbind(type , fn);
+        },
+        dispatchEvent: function (e) {
+            this.dispatch(e.type , e);
         },
         appendChild: function (element) {
             if (!element) {
@@ -353,6 +420,7 @@ define(function(require, exports, module) {
             this.setDirty();
         },
     };
+    ZUtil.merge(Dom.prototype, Eventful.prototype , true);
     
     function collectColorList(stopNodes) {
         var list = [] , attrs;
@@ -523,13 +591,11 @@ define(function(require, exports, module) {
         nodeName: 'g' ,
         attrConverter: groupAttr2ZStyle ,
         valueConverter: groupAttr2ZValue ,
-        __events__: null ,
         init: function (renderer , opts) {
             Dom.prototype.init.apply(this , arguments);
             this.shape = new Group({
                 style: this.style
             });
-            this.__events__ = {};
         },
         clip: function (element) {
             if (element.shape){
@@ -560,17 +626,17 @@ define(function(require, exports, module) {
             }
             Dom.prototype.removeAttribute.apply(this , arguments);
         },
-        _on: function (type, fn) {
+        bind: function (type, fn) {
             for (var i = 0; i < this.childNodes.length; i++) {
-                this.childNodes[i]._on(type , fn);
+                this.childNodes[i].bind(type , fn);
             }
-            this.__events__[type] = fn;
+            Dom.prototype.bind.apply(this , arguments);
         },
-        _off: function (type , fn) {
+        unbind: function (type , fn) {
             for (var i = 0; i < this.childNodes.length; i++) {
-                this.childNodes[i]._off(type , fn);
+                this.childNodes[i].unbind(type , fn);
             }
-            this.__events__ = {};
+            Dom.prototype.unbind.apply(this , arguments);
         },
         appendChild: function (element) {
             if (!element) {
@@ -588,8 +654,10 @@ define(function(require, exports, module) {
                     element.setAttribute("opacity" , visible)
                 }
                 // 追加事件函数
-                for (var prop in this.__events__) {
-                    element._on(prop , this.__events__[prop]);
+                for (var prop in this._handlers) {
+                    for (var i = 0; i < this._handlers[prop].length; i++) {
+                        element.bind(prop , this._handlers[prop][i].h);
+                    }
                 }
                 this._childAdded(element , this.shape._children.length - 1);
             }
@@ -625,8 +693,10 @@ define(function(require, exports, module) {
                     newItem.setAttribute("opacity" , visible)
                 }
                 // 追加事件函数
-                for (var prop in this.__events__) {
-                    newItem._on(prop , this.__events__[prop]);
+                for (var prop in this._handlers) {
+                    for (var i = 0; i < this._handlers[prop].length; i++) {
+                        newItem.bind(prop , this._handlers[prop][i].h);
+                    }
                 }
                 this._childAdded(newItem , from , true);
             }
@@ -639,7 +709,7 @@ define(function(require, exports, module) {
             if (element.shape){
                 var ind = this.shape._children.indexOf(element.shape);
                 if (ind !== -1){
-                    element._off();
+                    element.unbind();
                     this.shape.removeChild(element.shape);
                     this._childRemoved(element , ind)
                 }
@@ -730,6 +800,7 @@ define(function(require, exports, module) {
             if (!this.__dirtyFlag) {
                 this.__dirtyFlag = true;
                 nextFrame(function() {
+                    self.nativeRenderer.painter.clearHover();
                     self.nativeRenderer.render();
                     self.__dirtyFlag = false;
                 });
@@ -835,19 +906,36 @@ define(function(require, exports, module) {
             }
             Dom.prototype.setAttribute.apply(this , arguments);
         },
-        _on: function (type, fn) {
-            this.shape.hoverable = this.shape.hoverable || checkHoverabled[type] || false;
-            this.shape.clickable = this.shape.clickable || checkClickabled[type] || false;
-            var self = this;
-            this.shape.bind(type , function (e) {
-                e.target = self;
-                fn(e);
-            });
+        bind: function (type, fn) {
+            this.shape.bind(type , fn , this);
+            this._updateMouseable();
         },
-        _off: function (type , fn) {
+        unbind: function (type , fn) {
             if (!arguments.length) {
-                this.shape._handlers = {};
+                this.shape.unbind();
+            } else {
+                // TODO 完善移除指定事件的实现
+                // this.shape.unbind(type);
             }
+            this._updateMouseable();
+        },
+        _updateMouseable: function () {
+            var type , hoverable = false , clickable = false;
+            var handlers = this.shape._handlers;
+            for (var type in handlers) {
+                if (checkHoverabled[type]) {
+                    hoverable = true;
+                    break;
+                }
+            }
+            for (var type in handlers) {
+                if (checkClickabled[type]) {
+                    clickable = true;
+                    break;
+                }
+            }
+            this.shape.hoverable = hoverable;
+            this.shape.clickable = clickable;
         },
         getBBox: function () {
             return this.shape.getRect(this.shape.style);

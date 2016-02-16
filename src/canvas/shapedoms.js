@@ -145,6 +145,12 @@ define(function(require, exports, module) {
                 Rectangle.prototype.buildPath.apply(this , arguments);
             }
             ctx.closePath();
+        } , 
+        getRect: function (style) {
+            return Rectangle.prototype.getRect.apply(this , arguments);
+        } ,
+        isCover: function (x , y) {
+            return Area.isInside(this, this.style, x, y);
         }
     }
     ZUtil.inherits(HRectangle , Rectangle);
@@ -709,7 +715,6 @@ define(function(require, exports, module) {
             if (element.shape){
                 var ind = this.shape._children.indexOf(element.shape);
                 if (ind !== -1){
-                    element.unbind();
                     this.shape.removeChild(element.shape);
                     this._childRemoved(element , ind)
                 }
@@ -845,6 +850,9 @@ define(function(require, exports, module) {
                 setZLevel(element.shape , zl);
             }
         },
+        getBBox: function () {
+            return {x: 0 , y: 0 , width: this.getAttribute("width") , height: this.getAttribute("height")};
+        }
     }
     ZUtil.inherits(CanvasDom , GDom);
     
@@ -999,13 +1007,17 @@ define(function(require, exports, module) {
     var TextDomGroupAttrSetter = {
         "x": function (value) {
             // this.translateXSetter(dimensionConverter(value));
-            this.__x = value;
-            this._updatePosition();
+            if (this.__x !== value) {
+                this.__x = value;
+                this._updatePosition();
+            }
         } ,
         "y": function (value) {
             // this.translateYSetter(dimensionConverter(value));
-            this.__y = value;
-            this._updatePosition();
+            if (this.__y !== value) {
+                this.__y = value;
+                this._updatePosition();
+            }
         } ,
         "text": function (value) {
             if (!this.textDom) {
@@ -1074,17 +1086,17 @@ define(function(require, exports, module) {
             GDom.prototype.removeChild.apply(this , arguments);
         },
         getBBox: function () {
-            if (this.textDom) {
-                return this.textDom.getBBox();
-            }
-            // 如果只有一个TextDom元素
-            var onlyOnes = onlyOneTextDom(this);
-            if (!onlyOnes.length) {
-                return {x: 0 , y: 0 , width: 0 , height: 0};
-            }
-            if (onlyOnes.length === 1) {
-                return onlyOnes[0].getBBox();
-            }
+            // if (this.textDom) {
+            //     return this.textDom.getBBox();
+            // }
+            // // 如果只有一个TextDom元素
+            // var onlyOnes = onlyOneTextDom(this);
+            // if (!onlyOnes.length) {
+            //     return {x: 0 , y: 0 , width: 0 , height: 0};
+            // }
+            // if (onlyOnes.length === 1) {
+            //     return onlyOnes[0].getBBox();
+            // }
             
             var ww = 0 , hh = 0 , x = 0 , y = 0 , dx , dy , box , node;
             var nx = 0 , ny = 0;
@@ -1143,7 +1155,7 @@ define(function(require, exports, module) {
         ShapeClass: HText ,
         getDefaultStyle: function () {
             return TextDom.defaultStyle
-        }
+        },
     }
     ZUtil.inherits(TextDom , ShapeDom);
     TextDom.defaultStyle = merge(ShapeDom.defaultStyle , {

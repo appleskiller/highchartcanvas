@@ -1,4 +1,6 @@
 # highchartcanvas
+Deprecated.
+Because of poor performance -_-!
 
 TODO List:
 
